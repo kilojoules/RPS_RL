@@ -111,69 +111,109 @@ def collect_all(results_dir):
 # --- Animation with color gradient ---
 
 def animate_simplex(metrics_list, title, output_path, max_frames=200):
-    """Create a GIF with darker colors for later iterations."""
+    """Create a GIF with darker colors for later iterations.
+
+    Shows both agent (solid line, circle) and opponent (dashed line, diamond)
+    trajectories per seed so you can see them chasing each other.
+    """
     fig, ax = plt.subplots(figsize=(6, 5.5))
     draw_simplex(ax)
     ax.set_title(title, fontsize=14, fontweight='bold', pad=10)
 
     seed_cmaps = ['Blues', 'Oranges', 'Greens', 'Purples', 'Reds']
 
-    trajectories = []
+    # Each seed produces two trajectories: agent and opponent
+    trajectories = []  # list of (agent_pts, agent_probs, opp_pts, opp_probs)
     for metrics in metrics_list:
-        probs = np.array([m["agent_probs"] for m in metrics])
-        pts = probs_to_2d(probs)
-        if len(pts) > max_frames:
-            idx = np.linspace(0, len(pts)-1, max_frames, dtype=int)
-            pts = pts[idx]
-            probs = probs[idx]
-        trajectories.append((pts, probs))
+        agent_probs = np.array([m["agent_probs"] for m in metrics])
+        agent_pts = probs_to_2d(agent_probs)
+        has_opp = "opponent_probs" in metrics[0]
+        if has_opp:
+            opp_probs = np.array([m["opponent_probs"] for m in metrics])
+            opp_pts = probs_to_2d(opp_probs)
+        else:
+            opp_probs = opp_pts = None
+
+        if len(agent_pts) > max_frames:
+            idx = np.linspace(0, len(agent_pts)-1, max_frames, dtype=int)
+            agent_pts = agent_pts[idx]
+            agent_probs = agent_probs[idx]
+            if has_opp:
+                opp_pts = opp_pts[idx]
+                opp_probs = opp_probs[idx]
+        trajectories.append((agent_pts, agent_probs, opp_pts, opp_probs))
 
     n_frames = max(len(t[0]) for t in trajectories)
 
     # For animation: draw colored segments incrementally
-    collections = []
-    dots = []
+    collections = []  # (agent_lc, opp_lc, cmap) per seed
+    dots = []  # (agent_dot, opp_dot) per seed
     for i in range(len(trajectories)):
         cmap = plt.get_cmap(seed_cmaps[i % len(seed_cmaps)])
-        # Placeholder line collection
-        lc = LineCollection([], linewidths=1.5, alpha=0.7)
-        ax.add_collection(lc)
-        collections.append((lc, cmap))
-        dot, = ax.plot([], [], 'o', color=cmap(0.5), markersize=6,
-                       markeredgecolor='black', markeredgewidth=0.5, zorder=10)
-        dots.append(dot)
+        # Agent trajectory (solid)
+        agent_lc = LineCollection([], linewidths=1.5, alpha=0.7)
+        ax.add_collection(agent_lc)
+        agent_dot, = ax.plot([], [], 'o', color=cmap(0.5), markersize=6,
+                             markeredgecolor='black', markeredgewidth=0.5, zorder=10)
+        # Opponent trajectory (dashed, thinner)
+        opp_lc = LineCollection([], linewidths=1.0, alpha=0.5, linestyles='dashed')
+        ax.add_collection(opp_lc)
+        opp_dot, = ax.plot([], [], 'D', color=cmap(0.5), markersize=5,
+                           markeredgecolor='black', markeredgewidth=0.5, zorder=10)
+        collections.append((agent_lc, opp_lc, cmap))
+        dots.append((agent_dot, opp_dot))
 
     info = ax.text(0.02, 0.02, '', transform=ax.transAxes, fontsize=9,
                    verticalalignment='bottom', fontfamily='monospace',
                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
-    # Add colorbar legend
-    ax.text(0.98, 0.02, 'light=early\ndark=late', transform=ax.transAxes,
-            fontsize=7, ha='right', va='bottom', color='gray',
+    # Legend
+    ax.text(0.98, 0.02, 'solid=agent  dashed=opponent\nlight=early  dark=late',
+            transform=ax.transAxes, fontsize=7, ha='right', va='bottom', color='gray',
             bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
     def update(frame):
         artists = []
-        for i, (pts, probs) in enumerate(trajectories):
-            idx = min(frame, len(pts)-1)
-            lc, cmap = collections[i]
+        for i, (agent_pts, agent_probs, opp_pts, opp_probs) in enumerate(trajectories):
+            idx = min(frame, len(agent_pts)-1)
+            agent_lc, opp_lc, cmap = collections[i]
+            agent_dot, opp_dot = dots[i]
 
+            # Agent trajectory
             if idx >= 1:
-                segs = np.array([[pts[j], pts[j+1]] for j in range(idx)])
+                segs = np.array([[agent_pts[j], agent_pts[j+1]] for j in range(idx)])
                 t = np.linspace(0.25, 1.0, len(segs))
                 colors = cmap(t)
-                lc.set_segments(segs)
-                lc.set_color(colors)
+                agent_lc.set_segments(segs)
+                agent_lc.set_color(colors)
             else:
-                lc.set_segments([])
+                agent_lc.set_segments([])
 
-            dots[i].set_data([pts[idx, 0]], [pts[idx, 1]])
-            dots[i].set_color(cmap(min(1.0, 0.25 + 0.75 * idx / max(1, len(pts)-1))))
-            artists.extend([lc, dots[i]])
+            color_now = cmap(min(1.0, 0.25 + 0.75 * idx / max(1, len(agent_pts)-1)))
+            agent_dot.set_data([agent_pts[idx, 0]], [agent_pts[idx, 1]])
+            agent_dot.set_color(color_now)
+            artists.extend([agent_lc, agent_dot])
 
-        pts0, probs0 = trajectories[0]
-        idx0 = min(frame, len(probs0)-1)
-        p = probs0[idx0]
+            # Opponent trajectory
+            if opp_pts is not None:
+                opp_idx = min(frame, len(opp_pts)-1)
+                if opp_idx >= 1:
+                    opp_segs = np.array([[opp_pts[j], opp_pts[j+1]] for j in range(opp_idx)])
+                    opp_t = np.linspace(0.25, 1.0, len(opp_segs))
+                    opp_colors = cmap(opp_t)
+                    opp_lc.set_segments(opp_segs)
+                    opp_lc.set_color(opp_colors)
+                else:
+                    opp_lc.set_segments([])
+
+                opp_color_now = cmap(min(1.0, 0.25 + 0.75 * opp_idx / max(1, len(opp_pts)-1)))
+                opp_dot.set_data([opp_pts[opp_idx, 0]], [opp_pts[opp_idx, 1]])
+                opp_dot.set_color(opp_color_now)
+                artists.extend([opp_lc, opp_dot])
+
+        agent_pts0, agent_probs0 = trajectories[0][0], trajectories[0][1]
+        idx0 = min(frame, len(agent_probs0)-1)
+        p = agent_probs0[idx0]
         info.set_text(f'R={p[0]:.3f}  P={p[1]:.3f}  S={p[2]:.3f}\nStep {frame}/{n_frames}')
         artists.append(info)
         return artists

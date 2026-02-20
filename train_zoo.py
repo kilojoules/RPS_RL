@@ -28,11 +28,13 @@ def train_zoo(
     log_interval: int = 100,
     output_dir: str = "experiments/results/zoo",
     seed: int = 0,
+    cfg: PPOConfig = None,
 ):
     np.random.seed(seed)
 
+    if cfg is None:
+        cfg = PPOConfig()
     env = RPSEnv(num_envs=num_envs)
-    cfg = PPOConfig()
     agent = PPOAgent(cfg)
 
     # The "latest" opponent that evolves alongside the agent
@@ -150,7 +152,20 @@ def main():
     parser.add_argument("--log-interval", type=int, default=100)
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--entropy-coef", type=float, default=0.01)
+    parser.add_argument("--lr", type=float, default=3e-3)
+    parser.add_argument("--hidden", type=int, default=32)
+    parser.add_argument("--clip-ratio", type=float, default=0.2)
+    parser.add_argument("--train-iters", type=int, default=4)
     args = parser.parse_args()
+
+    cfg = PPOConfig(
+        entropy_coef=args.entropy_coef,
+        lr=args.lr,
+        hidden=args.hidden,
+        clip_ratio=args.clip_ratio,
+        train_iters=args.train_iters,
+    )
 
     train_zoo(
         latest_prob=args.latest_prob,
@@ -162,6 +177,7 @@ def main():
         log_interval=args.log_interval,
         output_dir=args.output_dir,
         seed=args.seed,
+        cfg=cfg,
     )
 
 

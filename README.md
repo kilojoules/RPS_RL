@@ -167,15 +167,31 @@ Each point in the triangle represents a mixed strategy over (Rock, Paper, Scisso
 
 ### Aggressive Self-Play: Dramatic Cycling
 
-With default hyperparameters, self-play cycling is mild (exploitability 0.03–0.16). By removing the entropy regularizer and increasing the learning rate, the agent over-commits much harder — exploitability peaks above 0.6 and the strategy visibly occupies corners of the simplex before swinging to the next:
+With default hyperparameters, self-play cycling is mild (exploitability 0.03–0.16). By removing the entropy regularizer and increasing the learning rate, the agent over-commits much harder — exploitability peaks above 0.6 and the strategy visibly occupies corners of the simplex before swinging to the next. Solid lines/circles are the agent; dashed lines/diamonds are the opponent.
 
 ```bash
 python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5 --seed 5
 ```
 
-![Aggressive self-play cycling](experiments/results/aggressive_selfplay/aggressive_selfplay.gif)
+![Aggressive self-play cycling](experiments/results/aggressive_selfplay_500k/aggressive_selfplay_500k.gif)
 
 Without entropy regularization the policy has no incentive to stay mixed, so it collapses toward pure strategies. The high learning rate makes each correction overshoot, creating the classic Rock → Paper → Scissors cycling failure mode.
+
+### Aggressive Config: Zoo Makes Things Worse
+
+With the aggressive hyperparameters, the A curve **inverts** — more zoo sampling *increases* exploitability:
+
+![Aggressive vs Standard A curve](experiments/results/aggressive_a_curve.png)
+
+| Condition | Exploitability (aggressive) | Exploitability (standard) |
+|-----------|----------------------------|--------------------------|
+| Self-play (A=0) | 0.1932 +/- 0.0552 | 0.0724 +/- 0.0370 |
+| A=0.1 | 0.2192 +/- 0.0758 | 0.0374 +/- 0.0171 |
+| A=0.3 | 0.3108 +/- 0.0661 | 0.0321 +/- 0.0155 |
+| A=0.5 | 0.5147 +/- 0.2319 | 0.0258 +/- 0.0125 |
+| A=0.9 | 0.9342 +/- 0.0732 | 0.0075 +/- 0.0033 |
+
+Without entropy regularization, the agent is too greedy to benefit from diverse opponents. It over-fits to beating specific zoo members instead of generalizing toward Nash. The zoo's diversity becomes a liability — each historical opponent pulls the agent toward a different counter-strategy, and without entropy to keep the policy mixed, the agent collapses to whichever pure strategy beats the most recent zoo sample.
 
 ### Training Dynamics
 
