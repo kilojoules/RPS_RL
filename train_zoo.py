@@ -141,7 +141,7 @@ def train_zoo(
 def main():
     parser = argparse.ArgumentParser(description="RPS zoo training")
     parser.add_argument("--latest-prob", "-A", type=float, default=0.1,
-                        help="Probability of playing latest opponent (default: 0.1)")
+                        help="A = probability of sampling from zoo (default: 0.1)")
     parser.add_argument("--timesteps", type=int, default=100_000)
     parser.add_argument("--num-envs", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=512)

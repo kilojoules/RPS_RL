@@ -24,40 +24,52 @@ def main():
     parser.add_argument("--a-values", type=float, nargs="+", default=A_VALUES)
     parser.add_argument("--output-dir", type=str, default="experiments/results")
     parser.add_argument("--max-parallel", type=int, default=8)
+    parser.add_argument("--algorithm", type=str, default="both",
+                        choices=["ppo", "buffered", "both"],
+                        help="Which algorithm(s) to sweep (default: both)")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
+    algorithms = ["ppo", "buffered"] if args.algorithm == "both" else [args.algorithm]
     experiments = []
 
-    # Self-play baseline across seeds
-    for seed in range(args.seeds):
-        experiments.append({
-            "name": f"selfplay_s{seed}",
-            "script": "train_selfplay.py",
-            "args": [
-                "--timesteps", str(args.timesteps),
-                "--seed", str(seed),
-                "--output-dir", f"{args.output_dir}/selfplay/seed_{seed}",
-            ],
-        })
+    for algo in algorithms:
+        prefix = "" if algo == "ppo" else "buffered_"
+        zoo_script = "train_zoo.py" if algo == "ppo" else "train_zoo_buffered.py"
 
-    # Zoo sweep: A × seed
-    for A in args.a_values:
-        for seed in range(args.seeds):
-            experiments.append({
-                "name": f"zoo_A{A:.2f}_s{seed}",
-                "script": "train_zoo.py",
-                "args": [
-                    "--latest-prob", str(A),
-                    "--timesteps", str(args.timesteps),
-                    "--seed", str(seed),
-                    "--output-dir", f"{args.output_dir}/zoo_A{A:.2f}/seed_{seed}",
-                ],
-            })
+        # Self-play baseline across seeds (PPO only — both share the same self-play)
+        if algo == "ppo":
+            for seed in range(args.seeds):
+                experiments.append({
+                    "name": f"selfplay_s{seed}",
+                    "script": "train_selfplay.py",
+                    "args": [
+                        "--timesteps", str(args.timesteps),
+                        "--seed", str(seed),
+                        "--output-dir", f"{args.output_dir}/selfplay/seed_{seed}",
+                    ],
+                })
 
+        # Zoo sweep: A × seed
+        for A in args.a_values:
+            for seed in range(args.seeds):
+                experiments.append({
+                    "name": f"{prefix}zoo_A{A:.2f}_s{seed}",
+                    "script": zoo_script,
+                    "args": [
+                        "--latest-prob", str(A),
+                        "--timesteps", str(args.timesteps),
+                        "--seed", str(seed),
+                        "--output-dir", f"{args.output_dir}/{prefix}zoo_A{A:.2f}/seed_{seed}",
+                    ],
+                })
+
+    n_selfplay = args.seeds if "ppo" in algorithms else 0
+    n_zoo = len(args.a_values) * args.seeds * len(algorithms)
     print(f"Total experiments: {len(experiments)}")
-    print(f"  Self-play: {args.seeds}")
-    print(f"  Zoo: {len(args.a_values)} A values x {args.seeds} seeds = {len(args.a_values) * args.seeds}")
+    print(f"  Algorithms: {algorithms}")
+    print(f"  Self-play: {n_selfplay}")
+    print(f"  Zoo: {len(args.a_values)} A values x {args.seeds} seeds x {len(algorithms)} algos = {n_zoo}")
     print(f"  A values: {args.a_values}")
     print(f"  Max parallel: {args.max_parallel}")
 

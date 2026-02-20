@@ -108,44 +108,62 @@ Both agents are highly exploitable by a third party playing the right counter-st
 
 ## Results
 
-Full sweep: 7 A values x 10 seeds + 10 self-play seeds = 80 experiments at 200k timesteps each.
+Full sweep: 150 experiments (7 A values x 10 seeds x 2 algorithms + 10 self-play seeds) at 200k timesteps each.
 
-### Exploitability vs A
+### PPO vs Buffered: Exploitability vs A
 
 ![Exploitability vs A curve](experiments/results/a_curve.png)
+
+**PPO (memoryless, on-policy):**
 
 | Condition | Exploitability (mean +/- std) | Entropy |
 |-----------|-------------------------------|---------|
 | Self-play (A=0) | 0.0724 +/- 0.0370 | 1.0905 |
 | A=0.05 | 0.0380 +/- 0.0176 | 1.0957 |
 | A=0.10 | 0.0374 +/- 0.0171 | 1.0958 |
-| A=0.20 | 0.0354 +/- 0.0166 | 1.0960 |
-| A=0.30 | 0.0322 +/- 0.0155 | 1.0965 |
-| A=0.50 | 0.0258 +/- 0.0124 | 1.0972 |
-| A=0.70 | 0.0169 +/- 0.0092 | 1.0980 |
-| A=0.90 | 0.0075 +/- 0.0032 | 1.0985 |
+| A=0.20 | 0.0355 +/- 0.0167 | 1.0960 |
+| A=0.30 | 0.0321 +/- 0.0155 | 1.0965 |
+| A=0.50 | 0.0258 +/- 0.0125 | 1.0972 |
+| A=0.70 | 0.0170 +/- 0.0093 | 1.0980 |
+| A=0.90 | 0.0075 +/- 0.0033 | 1.0985 |
+
+**Buffered (replay buffer, off-policy):**
+
+| Condition | Exploitability (mean +/- std) | Entropy |
+|-----------|-------------------------------|---------|
+| A=0.05 | 0.0380 +/- 0.0178 | 1.0957 |
+| A=0.10 | 0.0372 +/- 0.0172 | 1.0957 |
+| A=0.20 | 0.0366 +/- 0.0157 | 1.0958 |
+| A=0.30 | 0.0338 +/- 0.0155 | 1.0962 |
+| A=0.50 | 0.0317 +/- 0.0152 | 1.0964 |
+| A=0.70 | 0.0286 +/- 0.0145 | 1.0968 |
+| A=0.90 | 0.0236 +/- 0.0121 | 1.0973 |
 
 ### Strategy Trajectories on the Simplex
 
-Each point in the triangle represents a mixed strategy over (Rock, Paper, Scissors). The center (+) is Nash equilibrium (1/3, 1/3, 1/3). Trajectories show how the agent's strategy evolves over 200k timesteps.
+Each point in the triangle represents a mixed strategy over (Rock, Paper, Scissors). The center (+) is Nash equilibrium (1/3, 1/3, 1/3). Colors go from **light (early)** to **dark (late)** iterations. Each color is a different random seed.
 
-![Simplex comparison](experiments/results/simplex_comparison.png)
+**PPO (memoryless):**
 
-**Self-play (A=0)** — strategies wander far from Nash, scattered across seeds:
+![PPO simplex comparison](experiments/results/simplex_comparison.png)
+
+**Buffered (replay buffer):**
+
+![Buffered simplex comparison](experiments/results/simplex_comparison_buffered.png)
+
+### Animated Trajectories
+
+**Self-play (A=0)** — strategies wander far from Nash, cycling through Rock → Paper → Scissors:
 
 ![Self-play cycling](experiments/results/selfplay_simplex.gif)
 
-**Zoo A=0.10** — some wandering, but pulled back toward Nash:
+**PPO Zoo A=0.10** — some wandering, but pulled back toward Nash:
 
-![Zoo A=0.10](experiments/results/zoo_A0.10_simplex.gif)
+![PPO Zoo A=0.10](experiments/results/A0.10_simplex.gif)
 
-**Zoo A=0.50** — tighter clustering around Nash:
+**PPO Zoo A=0.90** — converges tightly to Nash:
 
-![Zoo A=0.50](experiments/results/zoo_A0.50_simplex.gif)
-
-**Zoo A=0.90** — converges tightly to Nash:
-
-![Zoo A=0.90](experiments/results/zoo_A0.90_simplex.gif)
+![PPO Zoo A=0.90](experiments/results/A0.90_simplex.gif)
 
 ### Training Dynamics
 
@@ -153,19 +171,23 @@ Each point in the triangle represents a mixed strategy over (Rock, Paper, Scisso
 
 ### Key Findings
 
-1. **Zoo sampling monotonically improves convergence to Nash.** More zoo = lower exploitability. No interior optimum (A*) observed.
+1. **Zoo sampling monotonically improves convergence to Nash.** More zoo = lower exploitability. No interior optimum (A*) observed. Both PPO and buffered agents show this pattern.
 2. **Self-play cycles.** Without a zoo, PPO agents oscillate through strategies and never converge to Nash (1/3, 1/3, 1/3). Exploitability swings between 0.03 and 0.16.
 3. **Even small zoo mixing helps.** A=0.05 (5% zoo) cuts exploitability roughly in half vs self-play.
-4. **No U-shape.** The hypothesis predicted an optimal interior A* — too much zoo should hurt because historical opponents become stale. In RPS this doesn't happen because the Nash equilibrium is fixed. The zoo never goes stale.
+4. **PPO benefits more from zoo sampling than the buffered agent.** At high A (heavy zoo), PPO reaches exploitability 0.0075 while buffered sits at 0.0236. The curves diverge at higher A — PPO's steep descent vs buffered's flatter curve. This matches the hypothesis prediction that memoryless algorithms are more *sensitive* to zoo sampling.
+5. **The buffered agent's flatter curve is consistent with theory.** The replay buffer provides some internal memory, making the agent less dependent on environmental diversity from the zoo. The curve shape is smoother and more gradual, as predicted.
+6. **No U-shape.** The hypothesis predicted an optimal interior A* — too much zoo should hurt because historical opponents become stale. In RPS this doesn't happen because the Nash equilibrium is fixed. The zoo never goes stale.
 
 ### Implications for the A-Parameter Hypothesis
 
-RPS confirms that zoo sampling helps a memoryless learner (PPO) converge, and that self-play alone cycles. But RPS is **too stationary** to test the core prediction: that there exists an optimal A* in the interior where too much zoo hurts performance.
+RPS confirms two of the three predictions:
 
-The U-shape prediction requires a **non-stationary** environment where opponent strategies genuinely evolve over training, making old zoo checkpoints misleading. Tag and WindGym should exhibit this — opponents develop new strategies over time that make historical checkpoints poor training partners.
+**Confirmed:**
+- Zoo sampling helps memoryless PPO converge (self-play alone cycles)
+- PPO (memoryless) has a steeper A curve than the buffered agent — the "two curve shapes" prediction holds. PPO is more sensitive to A.
 
-**RPS validates**: Zoo sampling > self-play for memoryless PPO.
-**RPS cannot test**: Whether there's a point of diminishing (or negative) returns from too much zoo sampling.
+**Not testable in RPS:**
+- Whether there's an optimal interior A* where too much zoo hurts. RPS is too stationary — the Nash equilibrium is fixed, so old zoo checkpoints never become misleading. The U-shape prediction requires a non-stationary environment like Tag or WindGym where opponent strategies genuinely evolve over time.
 
 ## Quick Start
 
@@ -175,15 +197,18 @@ pip install -r requirements.txt
 # Self-play baseline (no zoo)
 python train_selfplay.py --timesteps 200000
 
-# Single zoo run
+# Single zoo run (PPO)
 python train_zoo.py -A 0.1 --timesteps 200000
 
-# Full A sweep (80 experiments, ~minutes on CPU)
+# Single zoo run (buffered)
+python train_zoo_buffered.py -A 0.1 --timesteps 200000
+
+# Full A sweep — both algorithms (150 experiments, ~minutes on CPU)
 python run_sweep.py --timesteps 200000
 
 # Analyze results
 python analyze.py experiments/results/
 
-# Generate simplex animations and episode examples
+# Generate simplex animations and visualizations
 python visualize.py experiments/results/
 ```
