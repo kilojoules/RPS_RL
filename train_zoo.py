@@ -4,8 +4,9 @@ Zoo-based training for RPS.
 
 Mirrors AI-Plays-Tag/trainer/train_zoo.py structure:
 - Agent trains against opponents sampled from a zoo of historical checkpoints
-- A% of the time: play against latest opponent checkpoint
-- (1-A)% of the time: uniformly sample from the zoo
+- With probability A: uniformly sample from the zoo
+- With probability (1-A): play against latest opponent checkpoint
+- A=0 is self-play (use train_selfplay.py). A>=1 is invalid.
 """
 import argparse
 import json
@@ -53,11 +54,11 @@ def train_zoo(
     opp_all_obs, opp_all_acts, opp_all_rewards, opp_all_logp = [], [], [], []
 
     while total_rounds < timesteps:
-        # Decide opponent for this step: latest or zoo sample
-        if np.random.random() < latest_prob or len(opponent_zoo) == 0:
-            current_opponent = latest_opponent
-        else:
+        # Decide opponent for this step: zoo sample or latest
+        if len(opponent_zoo) > 0 and np.random.random() < latest_prob:
             current_opponent = opponent_zoo.sample()
+        else:
+            current_opponent = latest_opponent
 
         # Both act
         actions, log_probs = agent.act(obs)

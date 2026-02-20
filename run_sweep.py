@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 
-A_VALUES = [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0]
+A_VALUES = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
 NUM_SEEDS = 10
 
 
