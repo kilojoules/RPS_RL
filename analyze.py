@@ -106,7 +106,7 @@ def plot_a_curve(results, output_dir: Path):
         ax1.axhline(sp_mean, color="red", linestyle="--", label=f"Self-play baseline")
         ax1.axhspan(sp_mean - sp_std, sp_mean + sp_std, alpha=0.15, color="red")
     ax1.axhline(0.0, color="gray", linestyle=":", alpha=0.5, label="Nash (exploitability=0)")
-    ax1.set_xlabel("A (latest opponent probability)")
+    ax1.set_xlabel("A (zoo sampling probability)")
     ax1.set_ylabel("Exploitability")
     ax1.set_title("Exploitability vs A")
     ax1.legend()
@@ -115,7 +115,7 @@ def plot_a_curve(results, output_dir: Path):
     # Plot 2: Entropy vs A
     ax2.errorbar(a_vals, ent_means, yerr=ent_stds, fmt="s-", capsize=4, color="green", label="Zoo training")
     ax2.axhline(np.log(3), color="gray", linestyle=":", alpha=0.5, label="Max entropy (Nash)")
-    ax2.set_xlabel("A (latest opponent probability)")
+    ax2.set_xlabel("A (zoo sampling probability)")
     ax2.set_ylabel("Action entropy")
     ax2.set_title("Entropy vs A")
     ax2.legend()

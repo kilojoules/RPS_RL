@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
-experiments/results/
 *.egg-info/
 .DS_Store
+# Track results plots and summary, but not per-seed logs
+experiments/results/selfplay/
+experiments/results/zoo_*/
