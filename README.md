@@ -15,6 +15,97 @@ A=0 is self-play. A >= 1 is invalid. Arms race is a separate concept (sequential
 
 A* (optimal zoo sampling ratio for convergence to Nash equilibrium) is inversely proportional to the algorithm's effective memory capacity. PPO (memoryless) should need more zoo sampling (higher A*) than algorithms with replay buffers.
 
+## The Game
+
+Rock-Paper-Scissors is a zero-sum game with a known **Nash equilibrium**: play each action with probability 1/3.
+
+```
+Payoff matrix (row player):
+         Rock  Paper  Scissors
+Rock     [ 0    -1      +1   ]
+Paper    [+1     0      -1   ]
+Scissors [-1    +1       0   ]
+```
+
+Any deviation from (1/3, 1/3, 1/3) can be exploited. This makes RPS ideal for testing convergence: we know exactly what the optimal strategy is.
+
+## Exploitability: How We Measure Convergence
+
+**Exploitability** measures how far a strategy is from Nash equilibrium. It answers: *if an opponent knew my strategy exactly, how much could they win per round?*
+
+Given an agent's mixed strategy (p_R, p_P, p_S), the exploitability is the best-response payoff:
+
+```
+exploitability = max(
+    p_S - p_P,    # payoff from always playing Rock
+    p_R - p_S,    # payoff from always playing Paper
+    p_P - p_R     # payoff from always playing Scissors
+)
+```
+
+**Examples:**
+
+| Strategy | Exploitability | Best response | Meaning |
+|----------|---------------|---------------|---------|
+| (0.33, 0.33, 0.33) | 0.000 | None (Nash) | Unexploitable |
+| (0.50, 0.25, 0.25) | 0.250 | Always Paper | Wins +0.25/round |
+| (0.70, 0.15, 0.15) | 0.550 | Always Paper | Wins +0.55/round |
+| (1.00, 0.00, 0.00) | 1.000 | Always Paper | Wins every round |
+
+At Nash, exploitability = 0. At a pure strategy, exploitability = 1.
+
+## Example Episodes
+
+What does play actually look like at different exploitability levels?
+
+### Near-Nash agent (exploitability = 0.01)
+
+Agent: R=0.34, P=0.33, S=0.33 — nearly uniform, almost unexploitable.
+
+```
+Round   Agent  Opponent  Result  Payoff  Cumulative
+-------------------------------------------------------
+    1   Paper      Rock       W      +1          +1
+    2  Scissors    Rock       L      -1          +0
+    3  Scissors   Paper       W      +1          +1
+    4   Paper     Paper       D      +0          +1
+    5    Rock      Rock       D      +0          +1
+```
+
+Even the best response (always Paper) only wins +0.01/round on average. Essentially unbeatable.
+
+### Rock-biased agent (exploitability = 0.55)
+
+Agent: R=0.70, P=0.15, S=0.15 — heavily exploitable. This is what self-play cycling produces: the agent over-commits to one action.
+
+```
+Round   Agent  Opponent  Result  Payoff  Cumulative
+-------------------------------------------------------
+    1    Rock     Paper       L      -1          -1
+    2    Rock     Paper       L      -1          -2
+    3    Rock     Paper       L      -1          -3
+    4  Scissors   Paper       W      +1          -2
+    5    Rock     Paper       L      -1          -3
+```
+
+An opponent who knows this strategy just plays Paper every time and wins +0.55/round.
+
+### Self-play cycling failure (exploitability = 0.70)
+
+Agent locked into Rock, opponent locked into Paper — both have drifted from Nash. This is the co-evolutionary failure mode: each agent over-adapts to the other's current strategy.
+
+```
+Round   Agent  Opponent  Result  Payoff  Cumulative
+-------------------------------------------------------
+    1    Rock     Paper       L      -1          -1
+    2    Rock     Paper       L      -1          -2
+    3   Paper      Rock       W      +1          -1
+    4    Rock     Paper       L      -1          -2
+    5    Rock     Paper       L      -1          -3
+```
+
+Both agents are highly exploitable by a third party playing the right counter-strategy, even though they may be "winning" against each other in alternating cycles.
+
 ## Results
 
 Full sweep: 7 A values x 10 seeds + 10 self-play seeds = 80 experiments at 200k timesteps each.
@@ -33,6 +124,28 @@ Full sweep: 7 A values x 10 seeds + 10 self-play seeds = 80 experiments at 200k 
 | A=0.50 | 0.0258 +/- 0.0124 | 1.0972 |
 | A=0.70 | 0.0169 +/- 0.0092 | 1.0980 |
 | A=0.90 | 0.0075 +/- 0.0032 | 1.0985 |
+
+### Strategy Trajectories on the Simplex
+
+Each point in the triangle represents a mixed strategy over (Rock, Paper, Scissors). The center (+) is Nash equilibrium (1/3, 1/3, 1/3). Trajectories show how the agent's strategy evolves over 200k timesteps.
+
+![Simplex comparison](experiments/results/simplex_comparison.png)
+
+**Self-play (A=0)** — strategies wander far from Nash, scattered across seeds:
+
+![Self-play cycling](experiments/results/selfplay_simplex.gif)
+
+**Zoo A=0.10** — some wandering, but pulled back toward Nash:
+
+![Zoo A=0.10](experiments/results/zoo_A0.10_simplex.gif)
+
+**Zoo A=0.50** — tighter clustering around Nash:
+
+![Zoo A=0.50](experiments/results/zoo_A0.50_simplex.gif)
+
+**Zoo A=0.90** — converges tightly to Nash:
+
+![Zoo A=0.90](experiments/results/zoo_A0.90_simplex.gif)
 
 ### Training Dynamics
 
@@ -54,11 +167,6 @@ The U-shape prediction requires a **non-stationary** environment where opponent 
 **RPS validates**: Zoo sampling > self-play for memoryless PPO.
 **RPS cannot test**: Whether there's a point of diminishing (or negative) returns from too much zoo sampling.
 
-## Metrics
-
-- **Exploitability**: Max best-response payoff against the agent's mixed strategy. 0 at Nash (1/3, 1/3, 1/3), 1 at any pure strategy.
-- **Action entropy**: Shannon entropy of the policy. Max = log(3) ~ 1.099 at Nash.
-
 ## Quick Start
 
 ```bash
@@ -75,4 +183,7 @@ python run_sweep.py --timesteps 200000
 
 # Analyze results
 python analyze.py experiments/results/
+
+# Generate simplex animations and episode examples
+python visualize.py experiments/results/
 ```
