@@ -14,6 +14,8 @@ from pathlib import Path
 
 
 A_VALUES = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
+A_HALFLIFE_VALUES = [0.1, 0.25, 0.5]
+SCHEDULE_TYPES = ["exponential", "linear", "sigmoid"]
 NUM_SEEDS = 10
 
 
@@ -32,6 +34,11 @@ def main():
                         help="Zoo sampling strategy (default: uniform). 'both' runs uniform and thompson.")
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")
+    parser.add_argument("--a-schedule", type=str, default=None,
+                        choices=SCHEDULE_TYPES,
+                        help="Run schedule sweep with this schedule type")
+    parser.add_argument("--a-halflife-values", type=float, nargs="+", default=A_HALFLIFE_VALUES,
+                        help="Halflife values for schedule sweep (default: 0.1 0.25 0.5)")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -77,14 +84,41 @@ def main():
                         "args": exp_args,
                     })
 
+        # Schedule sweep (if requested)
+        if args.a_schedule:
+            schedule = args.a_schedule
+            for strategy in strategies:
+                ts_prefix = "ts_" if strategy == "thompson" else ""
+                for halflife in args.a_halflife_values:
+                    for seed in range(args.seeds):
+                        dir_name = f"{ts_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}"
+                        exp_args = [
+                            "--a-schedule", schedule,
+                            "--a-halflife", str(halflife),
+                            "--timesteps", str(args.timesteps),
+                            "--seed", str(seed),
+                            "--output-dir", f"{args.output_dir}/{dir_name}/seed_{seed}",
+                            "--sampling-strategy", strategy,
+                        ]
+                        if strategy == "thompson":
+                            exp_args += ["--competitiveness-threshold", str(args.competitiveness_threshold)]
+                        experiments.append({
+                            "name": f"{ts_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}_s{seed}",
+                            "script": zoo_script,
+                            "args": exp_args,
+                        })
+
     n_selfplay = args.seeds if "ppo" in algorithms else 0
     n_zoo = len(args.a_values) * args.seeds * len(algorithms) * len(strategies)
+    n_schedule = (len(args.a_halflife_values) * args.seeds * len(algorithms) * len(strategies)) if args.a_schedule else 0
     print(f"Total experiments: {len(experiments)}")
     print(f"  Algorithms: {algorithms}")
     print(f"  Strategies: {strategies}")
     print(f"  Self-play: {n_selfplay}")
     print(f"  Zoo: {len(args.a_values)} A values x {args.seeds} seeds x {len(algorithms)} algos x {len(strategies)} strategies = {n_zoo}")
     print(f"  A values: {args.a_values}")
+    if args.a_schedule:
+        print(f"  Schedule: {args.a_schedule}, halflife values: {args.a_halflife_values}, experiments: {n_schedule}")
     print(f"  Max parallel: {args.max_parallel}")
 
     if args.dry_run:

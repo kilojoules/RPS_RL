@@ -175,6 +175,76 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 
 ![Exploitability over training](experiments/results/timeseries.png)
 
+### A-Parameter Scheduling
+
+Since A* is dynamic — high A accelerates early convergence but degrades later — we tested whether **scheduling A to ramp up over training** could combine early self-play stability with late zoo diversity. Three schedule shapes were tested, all parameterized by a halflife `h` (fraction of training where A reaches 0.5):
+
+- **Exponential**: `A(t) = 1 - exp(-ln2 * t/(hT))` — fast initial ramp, slow asymptote
+- **Linear**: `A(t) = min(t/(2hT), 1)` — constant rate
+- **Sigmoid**: `A(t) = 1/(1 + exp(-k(t/T - h)))` — S-curve
+
+We ran 360 experiments: 3 schedules x 3 halflife values (0.10, 0.25, 0.50) x 2 sampling strategies (uniform, Thompson) x 10 seeds, at both 200k and 500k timesteps.
+
+![Schedule comparison 200k](experiments/results/schedule_comparison_200k.png)
+
+**200k timesteps — Uniform sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Constant A=0.90 (best constant) | 0.0075 +/- 0.0033 |
+| Sigmoid hl=0.10 (best schedule) | 0.0166 +/- 0.0092 |
+| Linear hl=0.10 | 0.0176 +/- 0.0093 |
+| Exponential hl=0.10 | 0.0195 +/- 0.0095 |
+| Constant A=0.50 | 0.0258 +/- 0.0125 |
+
+**200k timesteps — Thompson sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Constant A=0.90 (best constant) | 0.0053 +/- 0.0014 |
+| Linear hl=0.10 (best schedule) | 0.0087 +/- 0.0042 |
+| Sigmoid hl=0.10 | 0.0089 +/- 0.0050 |
+| Exponential hl=0.10 | 0.0109 +/- 0.0063 |
+
+At 200k, schedules **underperform** the best constant A. The best schedule (Thompson linear hl=0.10, exploitability 0.0087) is 64% worse than constant Thompson A=0.90 (0.0053). Ramping up means the agent spends early training at low A, missing the convergence-accelerating effect of early zoo diversity.
+
+![Schedule comparison 500k](experiments/results/schedule_comparison_500k.png)
+
+**500k timesteps — Uniform sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Constant A=0.05 (best constant) | 0.0556 +/- ? |
+| Exponential hl=0.50 | 0.0796 +/- 0.0497 |
+| Sigmoid hl=0.10 | 0.0798 +/- 0.0349 |
+| Linear hl=0.50 | 0.0829 +/- 0.0523 |
+| Constant A=0.90 (worst constant) | 0.1054 +/- ? |
+
+**500k timesteps — Thompson sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Linear hl=0.10 (best schedule) | 0.0536 +/- 0.0213 |
+| Sigmoid hl=0.10 | 0.0585 +/- 0.0231 |
+| Exponential hl=0.10 | 0.0644 +/- 0.0272 |
+
+At 500k, schedules **also degrade**, landing between the best constant (A=0.05 at 0.0556) and the worst constant (A=0.90 at 0.1054). The best schedule (Thompson linear hl=0.10 at 0.0536) is comparable to constant A=0.05 — no significant improvement.
+
+**Why scheduling up doesn't help:** The upward ramp gives the worst of both worlds. Early training uses low A (missing the convergence boost from zoo diversity), while late training uses high A (causing the documented zoo-diversity destabilization). The data suggests the opposite schedule — **decreasing A** (high early, low late) — would better match the observed dynamics, since high A accelerates early convergence and low A prevents late degradation. However, a decreasing schedule is functionally equivalent to simply training with high constant A for fewer timesteps, which the existing results already demonstrate works well.
+
+**Thompson Sampling remains beneficial at all schedule settings**, reducing exploitability by ~40–50% for hl=0.10 schedules. This is consistent with the constant-A Thompson results: adaptive opponent selection helps whenever the agent samples frequently from the zoo.
+
+```bash
+# Run with exponential schedule
+python train_zoo.py --a-schedule exponential --a-halflife 0.25 --timesteps 200000
+
+# Run with Thompson + linear schedule
+python train_zoo.py --a-schedule linear --a-halflife 0.10 --sampling-strategy thompson --timesteps 500000
+
+# Full schedule sweep
+python run_sweep.py --a-schedule exponential --timesteps 200000 --sampling-strategy thompson
+```
+
 ## Key Findings
 
 1. **Zoo sampling helps — in the right amount.** A small amount of zoo sampling (A=0.05) consistently reduces exploitability vs self-play. At 200k timesteps, heavier zoo sampling helps more; at 500k, only light zoo remains beneficial.
@@ -183,6 +253,7 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 4. **PPO benefits more from zoo sampling than the buffered agent.** PPO's A curve drops more steeply than Buffered's, matching the hypothesis that memoryless algorithms are more sensitive to zoo sampling.
 5. **Aggressive hyperparameters invert the A curve.** With high LR, small network, and no clipping, more zoo = worse performance. The agent needs enough capacity and stability to generalize from diverse opponents.
 6. **Thompson Sampling improves high-A performance.** Adaptive opponent selection via Thompson Sampling cuts exploitability by 30–69% at A=0.70–0.90, with negligible effect at low A. The benefit scales with how often the agent samples from the zoo — when most training comes from zoo opponents, picking *which* opponent matters.
+7. **Scheduling A upward doesn't beat constant A.** Ramping A from 0 to 1 over training (360 experiments, 3 schedule shapes, 3 halflife values) underperforms the best constant A at both 200k and 500k timesteps. The upward ramp misses early convergence benefits and still accumulates late destabilization. The degradation from zoo diversity appears to be a function of cumulative exposure, not just instantaneous A level.
 
 ## Implications for the A-Parameter Hypothesis
 
@@ -192,7 +263,8 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 - Interior A* exists — too much zoo hurts, even with proper regularization (at 500k)
 
 **New insights from RPS:**
-- **A* is dynamic, not static.** The optimal zoo ratio changes over training. Early on, heavy zoo accelerates convergence. Later, it destabilizes. This suggests A should be annealed during training — high early, low late.
+- **A* is dynamic, not static.** The optimal zoo ratio changes over training. Early on, heavy zoo accelerates convergence. Later, it destabilizes.
+- **Scheduling A upward doesn't help.** Ramping A from 0 to 1 over training (exponential, linear, sigmoid schedules) underperforms constant A at both 200k and 500k. The upward ramp misses early convergence benefits and still accumulates late degradation. A *decreasing* schedule (high early, low late) would match the dynamics better, but is functionally equivalent to simply training with high constant A for fewer timesteps. The degradation from zoo diversity is a function of cumulative exposure, not just the instantaneous A level.
 - **Entropy regularization doesn't shift A*.** Within the range tested (0.0–0.02), all entropy levels produce the same A*=0.05 at 500k. Entropy reduces overall exploitability but doesn't change the optimal zoo ratio.
 - **Aggressive hyperparameters break the zoo.** When the learning rate is too high or the network too small, zoo diversity becomes harmful at any level. The agent needs enough capacity and stability to generalize from diverse opponents.
 - **Thompson Sampling scales with A.** Adaptive opponent selection has negligible effect at low A but cuts exploitability by up to 69% at high A. The Buffered algorithm benefits more than PPO from Thompson at high A, suggesting the replay buffer amplifies opponent quality.

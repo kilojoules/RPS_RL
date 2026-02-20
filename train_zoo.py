@@ -15,7 +15,7 @@ from pathlib import Path
 
 from rps_env import RPSEnv, exploitability, action_entropy
 from ppo import PPOAgent, PPOConfig
-from zoo import OpponentZoo
+from zoo import OpponentZoo, a_schedule
 
 
 def train_zoo(
@@ -31,6 +31,8 @@ def train_zoo(
     cfg: PPOConfig = None,
     sampling_strategy: str = "uniform",
     competitiveness_threshold: float = 0.3,
+    a_schedule_type: str = "constant",
+    a_halflife: float = 0.25,
 ):
     np.random.seed(seed)
 
@@ -60,9 +62,15 @@ def train_zoo(
     opp_all_obs, opp_all_acts, opp_all_rewards, opp_all_logp = [], [], [], []
 
     while total_rounds < timesteps:
+        # Compute current A value (scheduled or constant)
+        if a_schedule_type != "constant":
+            current_a = a_schedule(total_rounds, timesteps, a_schedule_type, a_halflife)
+        else:
+            current_a = latest_prob
+
         # Decide opponent for this step: zoo sample or latest
         zoo_idx = None
-        if len(opponent_zoo) > 0 and np.random.random() < latest_prob:
+        if len(opponent_zoo) > 0 and np.random.random() < current_a:
             current_opponent, zoo_idx = opponent_zoo.sample()
         else:
             current_opponent = latest_opponent
@@ -127,7 +135,8 @@ def train_zoo(
                 metrics = {
                     "update": update_step,
                     "timesteps": total_rounds,
-                    "latest_prob": latest_prob,
+                    "latest_prob": current_a,
+                    "a_schedule_type": a_schedule_type,
                     "sampling_strategy": sampling_strategy,
                     "zoo_size": len(opponent_zoo),
                     "agent_probs": probs.tolist(),
@@ -144,7 +153,7 @@ def train_zoo(
                     f.write(json.dumps(metrics) + "\n")
 
                 print(
-                    f"[{total_rounds:>8d}] A={latest_prob} zoo={len(opponent_zoo):>3d} "
+                    f"[{total_rounds:>8d}] A={current_a:.4f} zoo={len(opponent_zoo):>3d} "
                     f"agent={probs.round(3)} expl={metrics['agent_exploitability']:.4f}"
                 )
 
@@ -169,6 +178,11 @@ def main():
                         help="Zoo sampling strategy (default: uniform)")
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")
+    parser.add_argument("--a-schedule", type=str, default="constant",
+                        choices=["constant", "exponential", "linear", "sigmoid"],
+                        help="A-parameter schedule type (default: constant)")
+    parser.add_argument("--a-halflife", type=float, default=0.25,
+                        help="Fraction of training where A reaches 0.5 (default: 0.25)")
     parser.add_argument("--entropy-coef", type=float, default=0.01)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--hidden", type=int, default=32)
@@ -197,6 +211,8 @@ def main():
         cfg=cfg,
         sampling_strategy=args.sampling_strategy,
         competitiveness_threshold=args.competitiveness_threshold,
+        a_schedule_type=args.a_schedule,
+        a_halflife=args.a_halflife,
     )
 
 

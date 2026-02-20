@@ -64,6 +64,18 @@ def collect_results(results_dir: Path):
             ts_prefix = "ts_" if is_thompson else ""
             buf_prefix = "buffered_" if is_buffered else ""
 
+            # Check for schedule directories: zoo_{schedule}_hl{halflife}
+            sched_match = re.search(r"zoo_(exponential|linear|sigmoid)_hl([\d.]+)", parts[0])
+            if sched_match:
+                schedule = sched_match.group(1)
+                halflife = float(sched_match.group(2))
+                key = f"{ts_prefix}{buf_prefix}zoo_{schedule}_hl{halflife:.2f}"
+                results[key].append({
+                    "final": final, "timeseries": metrics,
+                    "schedule": schedule, "halflife": halflife,
+                })
+                continue
+
             match = re.search(r"zoo_A([\d.]+)", parts[0])
             if match:
                 A = float(match.group(1))
@@ -301,6 +313,66 @@ def plot_ts_diagnostics(results, output_dir: Path):
     plt.close()
 
 
+def plot_schedule_comparison(results, output_dir: Path):
+    """Plot exploitability timeseries for each schedule/halflife, with constant-A baselines."""
+    # Collect schedule keys
+    sched_keys = [k for k in sorted(results.keys())
+                  if re.search(r"zoo_(exponential|linear|sigmoid)_hl", k)
+                  and not k.startswith("ts_") and not k.startswith("buffered_")]
+
+    if not sched_keys:
+        return
+
+    # Group by schedule type
+    schedules = defaultdict(list)
+    for key in sched_keys:
+        m = re.search(r"zoo_(exponential|linear|sigmoid)_hl([\d.]+)", key)
+        if m:
+            schedules[m.group(1)].append((float(m.group(2)), key))
+
+    n_schedules = len(schedules)
+    fig, axes = plt.subplots(1, n_schedules, figsize=(7 * n_schedules, 6), squeeze=False)
+
+    for ax_idx, (schedule, hl_keys) in enumerate(sorted(schedules.items())):
+        ax = axes[0, ax_idx]
+        colors = plt.cm.viridis(np.linspace(0.2, 0.8, len(hl_keys)))
+
+        for ci, (halflife, key) in enumerate(sorted(hl_keys)):
+            for run in results[key]:
+                ts = run["timeseries"]
+                steps = [m["timesteps"] for m in ts]
+                expls = [m["agent_exploitability"] for m in ts]
+                ax.plot(steps, expls, color=colors[ci], alpha=0.3, linewidth=0.5)
+            ax.plot([], [], color=colors[ci], label=f"hl={halflife:.2f}")
+
+        # Overlay constant-A baselines
+        const_keys = [k for k in sorted(results.keys())
+                      if k.startswith("zoo_A") and not k.startswith("ts_")
+                      and "A" in results[k][0]]
+        for key in const_keys:
+            A = results[key][0]["A"]
+            expls = [r["final"]["exploitability"] for r in results[key]]
+            ax.axhline(np.mean(expls), color="gray", linestyle="--", alpha=0.4,
+                       label=f"const A={A:.2f}" if A in [0.1, 0.5, 0.9] else None)
+
+        # Self-play baseline
+        if "selfplay" in results:
+            sp_expls = [r["final"]["exploitability"] for r in results["selfplay"]]
+            ax.axhline(np.mean(sp_expls), color="red", linestyle="--", alpha=0.5,
+                       label="Self-play (A=0)")
+
+        ax.set_xlabel("Timesteps")
+        ax.set_ylabel("Exploitability")
+        ax.set_title(f"Schedule: {schedule}")
+        ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    fig_path = output_dir / "schedule_comparison.png"
+    plt.savefig(fig_path, dpi=150)
+    print(f"Saved: {fig_path}")
+    plt.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze RPS A-parameter sweep")
     parser.add_argument("results_dir", type=str, help="Path to results directory")
@@ -320,8 +392,13 @@ def main():
         n = len(results[key])
         if key == "selfplay":
             print(f"  {key}: {n} seeds")
-        else:
+        elif "A" in results[key][0]:
             A = results[key][0]["A"]
+            expls = [r["final"]["exploitability"] for r in results[key]]
+            print(f"  {key}: {n} seeds, mean_expl={np.mean(expls):.4f} +/- {np.std(expls):.4f}")
+        elif "schedule" in results[key][0]:
+            schedule = results[key][0]["schedule"]
+            halflife = results[key][0]["halflife"]
             expls = [r["final"]["exploitability"] for r in results[key]]
             print(f"  {key}: {n} seeds, mean_expl={np.mean(expls):.4f} +/- {np.std(expls):.4f}")
 
@@ -333,6 +410,7 @@ def main():
     plot_timeseries(results, output_dir)
     plot_a_curve_comparison(results, output_dir)
     plot_ts_diagnostics(results, output_dir)
+    plot_schedule_comparison(results, output_dir)
 
     # Print summary table
     print("\n" + "=" * 70)
@@ -371,6 +449,35 @@ def main():
             expls = [r["final"]["exploitability"] for r in results[key]]
             ents = [r["final"]["entropy"] for r in results[key]]
             print(f"{'A=' + f'{A:.2f}':<25} {np.mean(expls):>8.4f} +/- {np.std(expls):.4f} {np.mean(ents):>8.4f}")
+
+    # Schedule groups
+    sched_keys = [k for k in sorted(results.keys())
+                  if re.search(r"zoo_(exponential|linear|sigmoid)_hl", k)]
+    if sched_keys:
+        # Group by prefix (ts_, buffered_, etc.)
+        sched_groups = defaultdict(list)
+        for key in sched_keys:
+            if key.startswith("ts_buffered_"):
+                sched_groups["Buffered Thompson Schedule"].append(key)
+            elif key.startswith("ts_"):
+                sched_groups["PPO Thompson Schedule"].append(key)
+            elif key.startswith("buffered_"):
+                sched_groups["Buffered Schedule"].append(key)
+            else:
+                sched_groups["PPO Schedule"].append(key)
+
+        for group_label, keys in sorted(sched_groups.items()):
+            print(f"\n--- {group_label} ---")
+            print(f"{'Condition':<30} {'Exploitability':>15} {'Entropy':>15}")
+            print("-" * 60)
+            for key in sorted(keys):
+                runs = results[key]
+                schedule = runs[0]["schedule"]
+                halflife = runs[0]["halflife"]
+                expls = [r["final"]["exploitability"] for r in runs]
+                ents = [r["final"]["entropy"] for r in runs]
+                label = f"{schedule} hl={halflife:.2f}"
+                print(f"{label:<30} {np.mean(expls):>8.4f} +/- {np.std(expls):.4f} {np.mean(ents):>8.4f}")
 
 
 if __name__ == "__main__":

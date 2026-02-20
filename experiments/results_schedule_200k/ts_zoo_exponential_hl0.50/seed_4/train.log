@@ -1,0 +1,5 @@
+[   51200] A=0.2975 zoo= 11 agent=[0.323 0.338 0.339] expl=0.0152
+[  102400] A=0.5074 zoo= 21 agent=[0.304 0.345 0.351] expl=0.0402
+[  153600] A=0.6545 zoo= 31 agent=[0.291 0.346 0.363] expl=0.0557
+
+Done. Metrics saved to experiments/results_schedule_200k/ts_zoo_exponential_hl0.50/seed_4/metrics.jsonl

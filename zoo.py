@@ -4,6 +4,7 @@ Opponent zoo: stores historical policy checkpoints and samples from them.
 Mirrors the OpponentZoo from AI-Plays-Tag/trainer/train_zoo.py.
 Supports uniform random sampling or Thompson Sampling (Beta-Bernoulli).
 """
+import math
 import random
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -85,3 +86,21 @@ class OpponentZoo:
 
     def __len__(self):
         return len(self.checkpoints)
+
+
+def a_schedule(t, timesteps, schedule="exponential", halflife=0.25):
+    """Map training progress to A value in [0, 1].
+
+    All schedules reach A=0.5 at t = halflife * timesteps.
+    """
+    frac = t / timesteps
+    h = halflife
+    if schedule == "exponential":
+        return 1.0 - math.exp(-math.log(2) * frac / h)
+    elif schedule == "linear":
+        return min(frac / (2 * h), 1.0)
+    elif schedule == "sigmoid":
+        k = math.log(99) / h
+        return 1.0 / (1.0 + math.exp(-k * (frac - h)))
+    else:
+        raise ValueError(f"Unknown schedule: {schedule}")
