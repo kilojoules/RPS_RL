@@ -1,0 +1,11 @@
+[   51200] A=0.9000 zoo= 11 agent=[0.334 0.333 0.333] expl=0.0015
+[  102400] A=0.9000 zoo= 21 agent=[0.334 0.334 0.332] expl=0.0020
+[  153600] A=0.9000 zoo= 31 agent=[0.332 0.335 0.332] expl=0.0034
+[  204800] A=0.9000 zoo= 41 agent=[0.328 0.337 0.335] expl=0.0091
+[  256000] A=0.9000 zoo= 50 agent=[0.325 0.34  0.335] expl=0.0153
+[  307200] A=0.9000 zoo= 50 agent=[0.321 0.342 0.337] expl=0.0203
+[  358400] A=0.9000 zoo= 50 agent=[0.317 0.346 0.337] expl=0.0290
+[  409600] A=0.9000 zoo= 50 agent=[0.312 0.35  0.338] expl=0.0383
+[  460800] A=0.9000 zoo= 50 agent=[0.307 0.353 0.34 ] expl=0.0454
+
+Done. Metrics saved to experiments/results_500k_baselines/zoo_A0.90/seed_3/metrics.jsonl

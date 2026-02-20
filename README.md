@@ -214,11 +214,12 @@ At 200k, schedules **underperform** the best constant A. The best schedule (Thom
 
 | Condition | Exploitability |
 |-----------|---------------|
-| Constant A=0.05 (best constant) | 0.0556 +/- ? |
+| Constant A=0.90 | 0.0351 +/- 0.0155 |
+| Constant A=0.05 | 0.0569 +/- 0.0383 |
+| Self-play (A=0) | 0.0590 +/- 0.0341 |
 | Exponential hl=0.50 | 0.0796 +/- 0.0497 |
 | Sigmoid hl=0.10 | 0.0798 +/- 0.0349 |
 | Linear hl=0.50 | 0.0829 +/- 0.0523 |
-| Constant A=0.90 (worst constant) | 0.1054 +/- ? |
 
 **500k timesteps — Thompson sampling (10 seeds):**
 
@@ -228,7 +229,7 @@ At 200k, schedules **underperform** the best constant A. The best schedule (Thom
 | Sigmoid hl=0.10 | 0.0585 +/- 0.0231 |
 | Exponential hl=0.10 | 0.0644 +/- 0.0272 |
 
-At 500k, schedules **also degrade**, landing between the best constant (A=0.05 at 0.0556) and the worst constant (A=0.90 at 0.1054). The best schedule (Thompson linear hl=0.10 at 0.0536) is comparable to constant A=0.05 — no significant improvement.
+At 500k, schedules **underperform all constant baselines**. Constant A=0.90 remains the best at 0.0351, while the best schedule (Thompson linear hl=0.10) achieves only 0.0536. The upward ramp accumulates zoo diversity damage without the benefit of consistent high-A training throughout.
 
 **Why scheduling up doesn't help:** The upward ramp gives the worst of both worlds. Early training uses low A (missing the convergence boost from zoo diversity), while late training uses high A (causing the documented zoo-diversity destabilization). The data suggests the opposite schedule — **decreasing A** (high early, low late) — would better match the observed dynamics, since high A accelerates early convergence and low A prevents late degradation. However, a decreasing schedule is functionally equivalent to simply training with high constant A for fewer timesteps, which the existing results already demonstrate works well.
 
