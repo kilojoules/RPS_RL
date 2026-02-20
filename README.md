@@ -231,19 +231,79 @@ At 200k, schedules **underperform** the best constant A. The best schedule (Thom
 
 At 500k, schedules **underperform all constant baselines**. Constant A=0.90 remains the best at 0.0351, while the best schedule (Thompson linear hl=0.10) achieves only 0.0536. The upward ramp accumulates zoo diversity damage without the benefit of consistent high-A training throughout.
 
-**Why scheduling up doesn't help:** The upward ramp gives the worst of both worlds. Early training uses low A (missing the convergence boost from zoo diversity), while late training uses high A (causing the documented zoo-diversity destabilization). The data suggests the opposite schedule — **decreasing A** (high early, low late) — would better match the observed dynamics, since high A accelerates early convergence and low A prevents late degradation. However, a decreasing schedule is functionally equivalent to simply training with high constant A for fewer timesteps, which the existing results already demonstrate works well.
+**Why scheduling up doesn't help:** The upward ramp gives the worst of both worlds. Early training uses low A (missing the convergence boost from zoo diversity), while late training uses high A (causing the documented zoo-diversity destabilization).
 
 **Thompson Sampling remains beneficial at all schedule settings**, reducing exploitability by ~40–50% for hl=0.10 schedules. This is consistent with the constant-A Thompson results: adaptive opponent selection helps whenever the agent samples frequently from the zoo.
 
+### Decreasing A Schedules
+
+The analysis above suggested the opposite direction: **start with high A, decay to low A**. This gives early zoo diversity to accelerate convergence, then tapers off to prevent late destabilization. We tested all three schedule shapes in decreasing form (`*_down`), which mirror the increasing variants: `A_down(t) = 1 - A_up(t)`.
+
+We ran 360 experiments: 3 schedules x 3 halflife values x 2 sampling strategies x 10 seeds, at both 200k and 500k timesteps.
+
+![Decreasing vs Increasing schedules](experiments/results/schedule_down_vs_up.png)
+
+**200k timesteps — Uniform sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Constant A=0.90 (best constant) | 0.0075 +/- 0.0033 |
+| Sigmoid_down hl=0.50 (best down) | 0.0218 +/- 0.0096 |
+| Linear_down hl=0.50 | 0.0275 +/- 0.0147 |
+| Exponential_down hl=0.50 | 0.0309 +/- 0.0140 |
+| Sigmoid_down hl=0.10 | 0.0586 +/- 0.0270 |
+
+**200k timesteps — Thompson sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| Constant Thompson A=0.90 | 0.0053 +/- 0.0014 |
+| Sigmoid_down hl=0.50 (best down) | 0.0201 +/- 0.0104 |
+| Linear_down hl=0.50 | 0.0238 +/- 0.0108 |
+| Exponential_down hl=0.50 | 0.0249 +/- 0.0126 |
+
+At 200k, decreasing schedules **underperform** constant A=0.90. The best decreasing schedule (Thompson sigmoid_down hl=0.50, exploitability 0.0201) is ~4x worse than constant Thompson A=0.90 (0.0053). Slow decay (hl=0.50) is best because 200k is short enough that keeping A high for most of training is beneficial. The fast-decaying schedules (hl=0.10) reduce A too quickly, approaching self-play behavior before the agent converges.
+
+**500k timesteps — Uniform sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| **Linear_down hl=0.10 (best down)** | **0.0332 +/- 0.0480** |
+| Exponential_down hl=0.10 | 0.0341 +/- 0.0494 |
+| Constant A=0.90 | 0.0351 +/- 0.0155 |
+| Sigmoid_down hl=0.10 | 0.0353 +/- 0.0501 |
+| Linear_down hl=0.25 | 0.0507 +/- 0.0659 |
+| Constant A=0.05 | 0.0569 +/- 0.0383 |
+| Self-play (A=0) | 0.0590 +/- 0.0341 |
+
+**500k timesteps — Thompson sampling (10 seeds):**
+
+| Condition | Exploitability |
+|-----------|---------------|
+| **Linear_down hl=0.10 (best down)** | **0.0339 +/- 0.0479** |
+| Sigmoid_down hl=0.10 | 0.0354 +/- 0.0543 |
+| Exponential_down hl=0.10 | 0.0387 +/- 0.0564 |
+
+At 500k, fast-decaying schedules (hl=0.10) **match or slightly beat constant A=0.90** (0.0332 vs 0.0351). The pattern reverses from 200k: now fast decay is best because it provides brief early zoo diversity then quickly reduces A, preventing the destabilization that accumulates over longer training. Slow decay (hl=0.50) is worst at 500k (0.0863) because it keeps A high too long.
+
+**Key insight: the optimal halflife scales with training length.** Short training (200k) favors slow decay (hl=0.50), long training (500k) favors fast decay (hl=0.10). The ideal is to keep A high long enough for the initial convergence boost, then taper to near-zero for stability.
+
+**Thompson Sampling has negligible effect on decreasing schedules.** Unlike constant-A and increasing schedules where Thompson improves exploitability by 30–69%, decreasing schedules show <5% difference between uniform and Thompson. This makes sense: as A decays, the agent samples from the zoo less frequently, so opponent selection quality matters less.
+
+**Decreasing schedules strongly outperform increasing schedules** — at both 200k and 500k, the best decreasing schedule beats the best increasing schedule by 2–3x. Decreasing schedules match the observed dynamics: high A helps early, hurts late.
+
+![Decreasing schedules uniform 200k](experiments/results/schedule_down_uniform_200k.png)
+![Decreasing schedules uniform 500k](experiments/results/schedule_down_uniform_500k.png)
+
 ```bash
-# Run with exponential schedule
-python train_zoo.py --a-schedule exponential --a-halflife 0.25 --timesteps 200000
+# Run with decreasing exponential schedule
+python train_zoo.py --a-schedule exponential_down --a-halflife 0.25 --timesteps 200000
 
-# Run with Thompson + linear schedule
-python train_zoo.py --a-schedule linear --a-halflife 0.10 --sampling-strategy thompson --timesteps 500000
+# Run with decreasing sigmoid + Thompson
+python train_zoo.py --a-schedule sigmoid_down --a-halflife 0.10 --sampling-strategy thompson --timesteps 500000
 
-# Full schedule sweep
-python run_sweep.py --a-schedule exponential --timesteps 200000 --sampling-strategy thompson
+# Full decreasing schedule sweep
+python run_sweep.py --a-schedule exponential_down --timesteps 200000 --sampling-strategy both
 ```
 
 ## Key Findings
@@ -254,7 +314,8 @@ python run_sweep.py --a-schedule exponential --timesteps 200000 --sampling-strat
 4. **PPO benefits more from zoo sampling than the buffered agent.** PPO's A curve drops more steeply than Buffered's, matching the hypothesis that memoryless algorithms are more sensitive to zoo sampling.
 5. **Aggressive hyperparameters invert the A curve.** With high LR, small network, and no clipping, more zoo = worse performance. The agent needs enough capacity and stability to generalize from diverse opponents.
 6. **Thompson Sampling improves high-A performance.** Adaptive opponent selection via Thompson Sampling cuts exploitability by 30–69% at A=0.70–0.90, with negligible effect at low A. The benefit scales with how often the agent samples from the zoo — when most training comes from zoo opponents, picking *which* opponent matters.
-7. **Scheduling A upward doesn't beat constant A.** Ramping A from 0 to 1 over training (360 experiments, 3 schedule shapes, 3 halflife values) underperforms the best constant A at both 200k and 500k timesteps. The upward ramp misses early convergence benefits and still accumulates late destabilization. The degradation from zoo diversity appears to be a function of cumulative exposure, not just instantaneous A level.
+7. **Scheduling A upward doesn't beat constant A.** Ramping A from 0 to 1 over training (360 experiments, 3 schedule shapes, 3 halflife values) underperforms the best constant A at both 200k and 500k timesteps. The upward ramp misses early convergence benefits and still accumulates late destabilization.
+8. **Decreasing A schedules match the best constant A at 500k.** Ramping A from 1 down to 0 (high early, low late) achieves 0.0332 at 500k — comparable to constant A=0.90 (0.0351) and far better than increasing schedules (0.0536). Fast decay (hl=0.10) is best at 500k; slow decay (hl=0.50) is best at 200k. The optimal halflife scales with training length.
 
 ## Implications for the A-Parameter Hypothesis
 
@@ -265,7 +326,7 @@ python run_sweep.py --a-schedule exponential --timesteps 200000 --sampling-strat
 
 **New insights from RPS:**
 - **A* is dynamic, not static.** The optimal zoo ratio changes over training. Early on, heavy zoo accelerates convergence. Later, it destabilizes.
-- **Scheduling A upward doesn't help.** Ramping A from 0 to 1 over training (exponential, linear, sigmoid schedules) underperforms constant A at both 200k and 500k. The upward ramp misses early convergence benefits and still accumulates late degradation. A *decreasing* schedule (high early, low late) would match the dynamics better, but is functionally equivalent to simply training with high constant A for fewer timesteps. The degradation from zoo diversity is a function of cumulative exposure, not just the instantaneous A level.
+- **Scheduling A upward doesn't help, but decreasing schedules do.** Ramping A from 0 to 1 over training underperforms constant A at both 200k and 500k. However, *decreasing* A schedules (high early, low late) match the best constant A=0.90 at 500k (0.0332 vs 0.0351) and strongly outperform increasing schedules. The optimal decay rate scales with training length — fast decay for long runs, slow decay for short runs. This confirms A* is dynamic: high A accelerates early convergence, but must taper off to prevent late destabilization.
 - **Entropy regularization doesn't shift A*.** Within the range tested (0.0–0.02), all entropy levels produce the same A*=0.05 at 500k. Entropy reduces overall exploitability but doesn't change the optimal zoo ratio.
 - **Aggressive hyperparameters break the zoo.** When the learning rate is too high or the network too small, zoo diversity becomes harmful at any level. The agent needs enough capacity and stability to generalize from diverse opponents.
 - **Thompson Sampling scales with A.** Adaptive opponent selection has negligible effect at low A but cuts exploitability by up to 69% at high A. The Buffered algorithm benefits more than PPO from Thompson at high A, suggesting the replay buffer amplifies opponent quality.

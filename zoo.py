@@ -91,8 +91,15 @@ class OpponentZoo:
 def a_schedule(t, timesteps, schedule="exponential", halflife=0.25):
     """Map training progress to A value in [0, 1].
 
-    All schedules reach A=0.5 at t = halflife * timesteps.
+    Increasing schedules (exponential, linear, sigmoid): start near 0, reach 1.
+    Decreasing schedules (*_down): start near 1, reach 0.
+    All pass through A=0.5 at t = halflife * timesteps.
     """
+    # Decreasing schedules: mirror of the increasing variant
+    if schedule.endswith("_down"):
+        base = schedule[:-5]  # strip "_down"
+        return 1.0 - a_schedule(t, timesteps, base, halflife)
+
     frac = t / timesteps
     h = halflife
     if schedule == "exponential":

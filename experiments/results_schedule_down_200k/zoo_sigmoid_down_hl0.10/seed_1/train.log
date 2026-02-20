@@ -1,0 +1,5 @@
+[   51200] A=0.0008 zoo= 11 agent=[0.333 0.337 0.33 ] expl=0.0039
+[  102400] A=0.0000 zoo= 21 agent=[0.333 0.345 0.322] expl=0.0125
+[  153600] A=0.0000 zoo= 31 agent=[0.33  0.358 0.312] expl=0.0279
+
+Done. Metrics saved to experiments/results_schedule_down_200k/zoo_sigmoid_down_hl0.10/seed_1/metrics.jsonl

@@ -65,7 +65,7 @@ def collect_results(results_dir: Path):
             buf_prefix = "buffered_" if is_buffered else ""
 
             # Check for schedule directories: zoo_{schedule}_hl{halflife}
-            sched_match = re.search(r"zoo_(exponential|linear|sigmoid)_hl([\d.]+)", parts[0])
+            sched_match = re.search(r"zoo_(exponential(?:_down)?|linear(?:_down)?|sigmoid(?:_down)?)_hl([\d.]+)", parts[0])
             if sched_match:
                 schedule = sched_match.group(1)
                 halflife = float(sched_match.group(2))
@@ -317,7 +317,7 @@ def plot_schedule_comparison(results, output_dir: Path):
     """Plot exploitability timeseries for each schedule/halflife, with constant-A baselines."""
     # Collect schedule keys
     sched_keys = [k for k in sorted(results.keys())
-                  if re.search(r"zoo_(exponential|linear|sigmoid)_hl", k)
+                  if re.search(r"zoo_(exponential|linear|sigmoid)(_down)?_hl", k)
                   and not k.startswith("ts_") and not k.startswith("buffered_")]
 
     if not sched_keys:
@@ -326,7 +326,7 @@ def plot_schedule_comparison(results, output_dir: Path):
     # Group by schedule type
     schedules = defaultdict(list)
     for key in sched_keys:
-        m = re.search(r"zoo_(exponential|linear|sigmoid)_hl([\d.]+)", key)
+        m = re.search(r"zoo_(exponential(?:_down)?|linear(?:_down)?|sigmoid(?:_down)?)_hl([\d.]+)", key)
         if m:
             schedules[m.group(1)].append((float(m.group(2)), key))
 
@@ -452,7 +452,7 @@ def main():
 
     # Schedule groups
     sched_keys = [k for k in sorted(results.keys())
-                  if re.search(r"zoo_(exponential|linear|sigmoid)_hl", k)]
+                  if re.search(r"zoo_(exponential|linear|sigmoid)(_down)?_hl", k)]
     if sched_keys:
         # Group by prefix (ts_, buffered_, etc.)
         sched_groups = defaultdict(list)

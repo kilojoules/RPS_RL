@@ -179,7 +179,8 @@ def main():
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")
     parser.add_argument("--a-schedule", type=str, default="constant",
-                        choices=["constant", "exponential", "linear", "sigmoid"],
+                        choices=["constant", "exponential", "linear", "sigmoid",
+                                 "exponential_down", "linear_down", "sigmoid_down"],
                         help="A-parameter schedule type (default: constant)")
     parser.add_argument("--a-halflife", type=float, default=0.25,
                         help="Fraction of training where A reaches 0.5 (default: 0.25)")

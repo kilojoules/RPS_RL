@@ -15,7 +15,8 @@ from pathlib import Path
 
 A_VALUES = [0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9]
 A_HALFLIFE_VALUES = [0.1, 0.25, 0.5]
-SCHEDULE_TYPES = ["exponential", "linear", "sigmoid"]
+SCHEDULE_TYPES = ["exponential", "linear", "sigmoid",
+                  "exponential_down", "linear_down", "sigmoid_down"]
 NUM_SEEDS = 10
 
 
@@ -35,7 +36,7 @@ def main():
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")
     parser.add_argument("--a-schedule", type=str, default=None,
-                        choices=SCHEDULE_TYPES,
+                        choices=SCHEDULE_TYPES + ["all"],
                         help="Run schedule sweep with this schedule type")
     parser.add_argument("--a-halflife-values", type=float, nargs="+", default=A_HALFLIFE_VALUES,
                         help="Halflife values for schedule sweep (default: 0.1 0.25 0.5)")

@@ -1,0 +1,11 @@
+[   51200] A=0.4906 zoo= 11 agent=[0.333 0.333 0.334] expl=0.0010
+[  102400] A=0.0000 zoo= 21 agent=[0.324 0.336 0.34 ] expl=0.0115
+[  153600] A=0.0000 zoo= 31 agent=[0.306 0.341 0.353] expl=0.0355
+[  204800] A=0.0000 zoo= 41 agent=[0.291 0.341 0.368] expl=0.0498
+[  256000] A=0.0000 zoo= 50 agent=[0.283 0.335 0.383] expl=0.0522
+[  307200] A=0.0000 zoo= 50 agent=[0.281 0.327 0.391] expl=0.0643
+[  358400] A=0.0000 zoo= 50 agent=[0.292 0.323 0.385] expl=0.0616
+[  409600] A=0.0000 zoo= 50 agent=[0.31  0.326 0.363] expl=0.0369
+[  460800] A=0.0000 zoo= 50 agent=[0.331 0.329 0.34 ] expl=0.0111
+
+Done. Metrics saved to experiments/results_schedule_down_500k/ts_zoo_linear_down_hl0.10/seed_9/metrics.jsonl
