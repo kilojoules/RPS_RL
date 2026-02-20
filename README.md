@@ -193,6 +193,22 @@ With the aggressive hyperparameters, the A curve **inverts** — more zoo sampli
 
 Without entropy regularization, the agent is too greedy to benefit from diverse opponents. It over-fits to beating specific zoo members instead of generalizing toward Nash. The zoo's diversity becomes a liability — each historical opponent pulls the agent toward a different counter-strategy, and without entropy to keep the policy mixed, the agent collapses to whichever pure strategy beats the most recent zoo sample.
 
+**Aggressive A=0.1** — mild zoo, still cycles but slightly wider swings than self-play:
+
+![Aggressive A=0.1](experiments/results/aggressive_zoo_A0.1/aggressive_A0.1.gif)
+
+**Aggressive A=0.3** — more zoo pulls the agent further off Nash:
+
+![Aggressive A=0.3](experiments/results/aggressive_zoo_A0.3/aggressive_A0.3.gif)
+
+**Aggressive A=0.5** — agent drifts toward corners, large exploitability:
+
+![Aggressive A=0.5](experiments/results/aggressive_zoo_A0.5/aggressive_A0.5.gif)
+
+**Aggressive A=0.9** — near-pure zoo sampling, agent collapses to a corner:
+
+![Aggressive A=0.9](experiments/results/aggressive_zoo_A0.9/aggressive_A0.9.gif)
+
 ### Training Dynamics
 
 ![Exploitability over training](experiments/results/timeseries.png)
