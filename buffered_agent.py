@@ -74,7 +74,7 @@ class BufferedAgent:
 
     def __init__(self, cfg: BufferedConfig):
         self.cfg = cfg
-        self.policy = SoftmaxPolicy(cfg.obs_dim, cfg.act_dim, cfg.hidden)
+        self.policy = SoftmaxPolicy(cfg.obs_dim, cfg.act_dim, cfg.hidden, cfg.entropy_coef)
         self.buffer = ReplayBuffer(max_size=cfg.buffer_size)
 
     def act(self, obs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:

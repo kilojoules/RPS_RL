@@ -27,10 +27,11 @@ class SoftmaxPolicy:
     Forward: h = ReLU(W1 @ x + b1), logits = W2 @ h + b2, pi = softmax(logits)
     """
 
-    def __init__(self, obs_dim: int, act_dim: int, hidden: int = 32):
+    def __init__(self, obs_dim: int, act_dim: int, hidden: int = 32, entropy_coef: float = 0.01):
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.hidden = hidden
+        self.entropy_coef = entropy_coef
 
         scale1 = np.sqrt(2.0 / obs_dim)
         scale2 = np.sqrt(2.0 / hidden)
@@ -103,7 +104,7 @@ class SoftmaxPolicy:
         # Actually for policy gradient, the entropy bonus just adds to d_logits:
         log_probs = np.log(probs + 1e-10)
         entropy_grad = -(log_probs + 1) * probs + probs * np.sum((log_probs + 1) * probs, axis=-1, keepdims=True)
-        d_logits += self._entropy_coef * entropy_grad / batch
+        d_logits += self.entropy_coef * entropy_grad / batch
 
         # Backprop through W2, b2
         dW2 = d_logits.T @ h  # (act_dim, hidden)
@@ -119,10 +120,6 @@ class SoftmaxPolicy:
 
         return {"W1": dW1, "b1": db1, "W2": dW2, "b2": db2}
 
-    @property
-    def _entropy_coef(self):
-        return 0.01  # Will be overridden by PPOAgent
-
     def get_params(self) -> List[np.ndarray]:
         return [self.W1, self.b1, self.W2, self.b2]
 
@@ -134,6 +131,7 @@ class SoftmaxPolicy:
         new.obs_dim = self.obs_dim
         new.act_dim = self.act_dim
         new.hidden = self.hidden
+        new.entropy_coef = self.entropy_coef
         new.W1 = self.W1.copy()
         new.b1 = self.b1.copy()
         new.W2 = self.W2.copy()
@@ -149,7 +147,7 @@ class PPOAgent:
 
     def __init__(self, cfg: PPOConfig):
         self.cfg = cfg
-        self.policy = SoftmaxPolicy(cfg.obs_dim, cfg.act_dim, cfg.hidden)
+        self.policy = SoftmaxPolicy(cfg.obs_dim, cfg.act_dim, cfg.hidden, cfg.entropy_coef)
 
     def act(self, obs: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         return self.policy.sample(obs)
@@ -183,9 +181,6 @@ class PPOAgent:
             # So: weight = advantage if not clipped, else 0
             clipped = (ratio < 1 - cfg.clip_ratio) | (ratio > 1 + cfg.clip_ratio)
             weights = np.where(clipped, 0.0, advantages)
-
-            # Override entropy coef for backward pass
-            self.policy._entropy_coef_val = cfg.entropy_coef
 
             grads = self.policy.backward(cache, actions, weights)
 

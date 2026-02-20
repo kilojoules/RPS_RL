@@ -108,7 +108,7 @@ Both agents are highly exploitable by a third party playing the right counter-st
 
 ## Results
 
-Full sweep: 150 experiments (7 A values x 10 seeds x 2 algorithms + 10 self-play seeds) at 200k timesteps each.
+Standard sweep: 150 experiments (7 A values x 10 seeds x 2 algorithms + 10 self-play seeds) at 200k timesteps each. Entropy/hyperparameter sweep: 252 experiments at 500k timesteps each.
 
 ### PPO vs Buffered: Exploitability vs A
 
@@ -167,15 +167,15 @@ Each point in the triangle represents a mixed strategy over (Rock, Paper, Scisso
 
 ### Aggressive Self-Play: Dramatic Cycling
 
-With default hyperparameters, self-play cycling is mild (exploitability 0.03–0.16). By removing the entropy regularizer and increasing the learning rate, the agent over-commits much harder — exploitability peaks above 0.6 and the strategy visibly occupies corners of the simplex before swinging to the next. Solid lines/circles are the agent; dashed lines/diamonds are the opponent.
+With default hyperparameters, self-play cycling is mild (exploitability 0.03–0.16). With aggressive hyperparameters — no entropy regularization, high learning rate, small network, and no PPO clipping — the agent over-commits much harder. Solid lines/circles are the agent; dashed lines/diamonds are the opponent.
 
 ```bash
-python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5 --seed 5
+python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5 --seed 5 --timesteps 500000
 ```
 
-![Aggressive self-play cycling](experiments/results/aggressive_selfplay_500k/aggressive_selfplay_500k.gif)
+![Aggressive self-play cycling](experiments/results/aggressive_selfplay_fixed.gif)
 
-Without entropy regularization the policy has no incentive to stay mixed, so it collapses toward pure strategies. The high learning rate makes each correction overshoot, creating the classic Rock → Paper → Scissors cycling failure mode.
+Without entropy regularization the policy has no incentive to stay mixed, and the high learning rate makes each correction overshoot, creating the classic Rock → Paper → Scissors cycling failure mode. The small hidden layer (4 vs 32) reduces the network's capacity to represent smooth mixed strategies, and disabling PPO clipping (clip_ratio=100) removes the safety net that prevents large policy updates.
 
 ### Aggressive Config: Zoo Makes Things Worse
 
@@ -185,61 +185,57 @@ With the aggressive hyperparameters, the A curve **inverts** — more zoo sampli
 
 | Condition | Exploitability (aggressive) | Exploitability (standard) |
 |-----------|----------------------------|--------------------------|
-| Self-play (A=0) | 0.1932 +/- 0.0552 | 0.0724 +/- 0.0370 |
-| A=0.1 | 0.2192 +/- 0.0758 | 0.0374 +/- 0.0171 |
-| A=0.3 | 0.3108 +/- 0.0661 | 0.0321 +/- 0.0155 |
-| A=0.5 | 0.5147 +/- 0.2319 | 0.0258 +/- 0.0125 |
-| A=0.9 | 0.9342 +/- 0.0732 | 0.0075 +/- 0.0033 |
+| Self-play (A=0) | 0.3170 | 0.0724 +/- 0.0370 |
+| A=0.1 | 0.2412 +/- 0.0575 | 0.0374 +/- 0.0171 |
+| A=0.3 | 0.3002 +/- 0.0817 | 0.0321 +/- 0.0155 |
+| A=0.5 | 0.3467 +/- 0.0226 | 0.0258 +/- 0.0125 |
+| A=0.9 | 0.9258 +/- 0.0744 | 0.0075 +/- 0.0033 |
 
-Without entropy regularization, the agent is too greedy to benefit from diverse opponents. It over-fits to beating specific zoo members instead of generalizing toward Nash. The zoo's diversity becomes a liability — each historical opponent pulls the agent toward a different counter-strategy, and without entropy to keep the policy mixed, the agent collapses to whichever pure strategy beats the most recent zoo sample.
+With aggressive hyperparameters, the agent over-fits to beating specific zoo members instead of generalizing toward Nash. The zoo's diversity becomes a liability — each historical opponent pulls the agent toward a different counter-strategy, and the agent collapses to whichever pure strategy beats the most recent zoo sample.
 
-**Aggressive A=0.1** — mild zoo, still cycles but slightly wider swings than self-play:
+**Aggressive A=0.1** — mild zoo, cycling with moderate amplitude:
 
-![Aggressive A=0.1](experiments/results/aggressive_zoo_A0.1/aggressive_A0.1.gif)
+![Aggressive A=0.1](experiments/results/aggressive_fixed_A0.1.gif)
 
 **Aggressive A=0.3** — more zoo pulls the agent further off Nash:
 
-![Aggressive A=0.3](experiments/results/aggressive_zoo_A0.3/aggressive_A0.3.gif)
+![Aggressive A=0.3](experiments/results/aggressive_fixed_A0.3.gif)
 
 **Aggressive A=0.5** — agent drifts toward corners, large exploitability:
 
-![Aggressive A=0.5](experiments/results/aggressive_zoo_A0.5/aggressive_A0.5.gif)
+![Aggressive A=0.5](experiments/results/aggressive_fixed_A0.5.gif)
 
 **Aggressive A=0.9** — near-pure zoo sampling, agent collapses to a corner:
 
-![Aggressive A=0.9](experiments/results/aggressive_zoo_A0.9/aggressive_A0.9.gif)
+![Aggressive A=0.9](experiments/results/aggressive_fixed_A0.9.gif)
 
-### Finding A*: Optimal Zoo Sampling Depends on Regularization
+### The A Curve Evolves with Training Length
 
-By sweeping entropy coefficient and learning rate, we find three distinct regimes for A*:
+A surprising finding: the optimal A* depends on how long you train. At 200k timesteps, A*=0.9 — heavy zoo sampling produces the lowest exploitability. But by 500k timesteps, the picture inverts: A*=0.05, and high-A agents have degraded significantly.
+
+![Training length effect](experiments/results/training_length_effect.png)
+
+| A | Exploitability at 200k | Exploitability at 500k |
+|---|----------------------|----------------------|
+| 0.0 (self-play) | 0.0724 | 0.0753 |
+| 0.05 | 0.0380 | 0.0556 |
+| 0.10 | 0.0374 | 0.0590 |
+| 0.50 | 0.0258 | 0.1349 |
+| 0.90 | 0.0075 | 0.1054 |
+
+At 200k, heavy zoo sampling (A=0.9) rapidly pushes the agent toward Nash — exploitability is only 0.0075. But this convergence doesn't persist. By 500k, the A=0.9 agent's exploitability has risen 14x to 0.105. Meanwhile, the A=0.05 agent slowly improves from 0.038 to 0.056.
+
+**Interpretation:** Heavy zoo sampling accelerates early convergence by providing diverse opponents. But after the agent nears Nash, the continued diversity becomes destabilizing — the agent chases each zoo opponent's particular weakness, slowly pulling away from the uniform equilibrium. Light zoo sampling (A=0.05) is slower but more stable long-term.
+
+### Does Entropy Shift A*?
+
+After fixing a bug where the entropy coefficient wasn't being applied correctly (see Bug Fix note below), we ran a comprehensive sweep: 7 entropy levels × 8 A values × 3 seeds for PPO, and 4 entropy levels × 7 A values × 3 seeds for Buffered, all at 500k timesteps.
 
 ![A* comparison](experiments/results/a_star_comparison.png)
 
-| Config | Entropy | LR | A* | Exploitability at A* |
-|--------|---------|------|-----|---------------------|
-| Standard | 0.01 | 0.003 | 0.90 | 0.0075 |
-| No entropy | 0.0 | 0.003 | 0.05 | 0.0558 |
-| Aggressive | 0.0 | 0.05 | 0.0 | 0.1932 |
+**Result: A*=0.05 for all entropy levels tested (0.0 to 0.02), for both PPO and Buffered.** Entropy regularization slightly reduces overall exploitability (all curves shift down with higher entropy) but does not change the optimal zoo sampling ratio. The A curve shape — minimum at A=0.05, rising through A=0.5–0.7, then partially recovering at A=0.9 — is consistent across all conditions.
 
-**Standard config (A*=0.9)** — with entropy regularization, zoo always helps. The agent generalizes from diverse opponents:
-
-![Standard A*=0.9](experiments/results/A0.90_simplex.gif)
-
-**No entropy, standard LR (A*=0.05)** — interior optimum. A little zoo helps, but too much hurts. This is the U-shape the hypothesis predicts:
-
-![No entropy A*=0.05](experiments/results/moderate_Astar0.05.gif)
-
-For comparison, self-play (A=0) with the same config cycles more:
-
-![No entropy self-play](experiments/results/moderate_selfplay.gif)
-
-And too much zoo (A=0.5) makes the agent drift further from Nash:
-
-![No entropy A=0.5](experiments/results/moderate_A0.5.gif)
-
-**Aggressive config (A*=0.0)** — without entropy *and* with high LR, the agent is too greedy. Zoo makes things progressively worse:
-
-![Aggressive self-play](experiments/results/aggressive_selfplay_500k/aggressive_selfplay_500k.gif)
+**Bug fix note:** An earlier version of this code had a bug where `SoftmaxPolicy._entropy_coef` was a property that always returned 0.01, ignoring the configured value. This meant all experiments claiming to vary entropy coefficient were actually running with ent=0.01. The standard config results (which used ent=0.01 as the default) were unaffected. The aggressive experiments have been re-run with the fix.
 
 ### Training Dynamics
 
@@ -247,27 +243,29 @@ And too much zoo (A=0.5) makes the agent drift further from Nash:
 
 ### Key Findings
 
-1. **Zoo sampling helps with proper regularization.** With entropy regularization (standard config), more zoo = lower exploitability. A*=0.9.
-2. **Self-play cycles.** Without a zoo, PPO agents oscillate through strategies and never converge to Nash (1/3, 1/3, 1/3). Exploitability swings between 0.03 and 0.16.
-3. **Even small zoo mixing helps.** A=0.05 (5% zoo) cuts exploitability roughly in half vs self-play.
-4. **PPO benefits more from zoo sampling than the buffered agent.** At high A (heavy zoo), PPO reaches exploitability 0.0075 while buffered sits at 0.0236. The curves diverge at higher A — PPO's steep descent vs buffered's flatter curve. This matches the hypothesis prediction that memoryless algorithms are more *sensitive* to zoo sampling.
-5. **The buffered agent's flatter curve is consistent with theory.** The replay buffer provides some internal memory, making the agent less dependent on environmental diversity from the zoo.
-6. **A* depends on regularization.** Removing entropy regularization produces an interior A*=0.05 — a small amount of zoo helps, but too much hurts. With aggressive hyperparameters, even self-play outperforms any zoo configuration. This suggests A* is not just about memory capacity but also about the agent's ability to generalize from diverse opponents.
+1. **Zoo sampling helps — in the right amount.** A small amount of zoo sampling (A=0.05) consistently reduces exploitability vs self-play. At 200k timesteps, heavier zoo sampling helps more; at 500k, only light zoo remains beneficial.
+2. **A* depends on training length, not entropy.** At 200k, A*=0.9. At 500k, A*=0.05. The entropy coefficient (0.0–0.02) does not shift A*. This suggests the zoo's benefit is about convergence speed, not a fixed equilibrium property.
+3. **Self-play cycles.** Without a zoo, PPO agents oscillate through strategies and never converge to Nash (1/3, 1/3, 1/3). Exploitability swings between 0.03 and 0.16.
+4. **Heavy zoo sampling degrades over time.** A=0.9 produces the lowest exploitability at 200k (0.0075) but rises 14x by 500k (0.105). The continued diversity of zoo opponents destabilizes the agent after initial convergence.
+5. **PPO benefits more from zoo sampling than the buffered agent.** At 200k, PPO's A curve drops more steeply than Buffered's — PPO reaches exploitability 0.0075 at A=0.9 while Buffered sits at 0.0236. This matches the hypothesis prediction that memoryless algorithms are more sensitive to zoo sampling.
+6. **Aggressive hyperparameters invert the A curve.** With high LR, small network, and no clipping, more zoo = worse performance. The agent over-fits to beating specific zoo members rather than generalizing.
 
 ### Implications for the A-Parameter Hypothesis
 
-RPS confirms the core predictions and adds a nuance:
+RPS confirms the core predictions and adds nuances:
 
 **Confirmed:**
 - Zoo sampling helps memoryless PPO converge (self-play alone cycles)
 - PPO (memoryless) has a steeper A curve than the buffered agent — the "two curve shapes" prediction holds
-- Interior A* exists when entropy regularization is removed — too much zoo hurts an under-regularized agent
+- Interior A* exists — too much zoo hurts, even with proper regularization (at 500k)
 
-**New insight from RPS:**
-- A* depends on the agent's *generalization capacity*, not just memory. An agent that can generalize from diverse opponents (entropy-regularized) benefits monotonically from more zoo. An agent that over-fits to each opponent (no entropy) has an interior optimum or even A*=0.
+**New insights from RPS:**
+- **A* is dynamic, not static.** The optimal zoo ratio changes over training. Early on, heavy zoo accelerates convergence. Later, it destabilizes. This suggests A should be annealed during training — high early, low late.
+- **Entropy regularization doesn't shift A*.** Within the range tested (0.0–0.02), all entropy levels produce the same A*=0.05 at 500k. Entropy reduces overall exploitability but doesn't change the optimal zoo ratio.
+- **Aggressive hyperparameters break the zoo.** When the learning rate is too high or the network too small, zoo diversity becomes harmful at any level. The agent needs enough capacity and stability to generalize from diverse opponents.
 
 **Not testable in RPS:**
-- Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The U-shape we observe comes from the agent's inability to generalize, not from stale opponents. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
+- Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The degradation at high A we observe comes from over-diversity, not staleness. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
 
 ## Quick Start
 

@@ -57,11 +57,13 @@ def train_zoo_buffered(
     log_interval: int = 100,
     output_dir: str = "experiments/results/zoo_buffered",
     seed: int = 0,
+    cfg: BufferedConfig = None,
 ):
     np.random.seed(seed)
 
+    if cfg is None:
+        cfg = BufferedConfig(buffer_size=buffer_size)
     env = RPSEnv(num_envs=num_envs)
-    cfg = BufferedConfig(buffer_size=buffer_size)
     agent = BufferedAgent(cfg)
     latest_opponent = BufferedAgent(cfg)
 
@@ -148,7 +150,17 @@ def main():
     parser.add_argument("--log-interval", type=int, default=100)
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo_buffered")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--entropy-coef", type=float, default=0.01)
+    parser.add_argument("--lr", type=float, default=3e-3)
+    parser.add_argument("--hidden", type=int, default=32)
     args = parser.parse_args()
+
+    cfg = BufferedConfig(
+        buffer_size=args.buffer_size,
+        entropy_coef=args.entropy_coef,
+        lr=args.lr,
+        hidden=args.hidden,
+    )
 
     train_zoo_buffered(
         latest_prob=args.latest_prob,
@@ -160,6 +172,7 @@ def main():
         log_interval=args.log_interval,
         output_dir=args.output_dir,
         seed=args.seed,
+        cfg=cfg,
     )
 
 
