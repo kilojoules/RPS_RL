@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""
+Zoo-based training for RPS.
+
+Mirrors AI-Plays-Tag/trainer/train_zoo.py structure:
+- Agent trains against opponents sampled from a zoo of historical checkpoints
+- A% of the time: play against latest opponent checkpoint
+- (1-A)% of the time: uniformly sample from the zoo
+"""
+import argparse
+import json
+import numpy as np
+from pathlib import Path
+
+from rps_env import RPSEnv, exploitability, action_entropy
+from ppo import PPOAgent, PPOConfig
+from zoo import OpponentZoo
+
+
+def train_zoo(
+    latest_prob: float = 0.1,
+    timesteps: int = 100_000,
+    num_envs: int = 256,
+    batch_size: int = 512,
+    zoo_update_interval: int = 10,
+    zoo_max_size: int = 50,
+    log_interval: int = 100,
+    output_dir: str = "experiments/results/zoo",
+    seed: int = 0,
+):
+    np.random.seed(seed)
+
+    env = RPSEnv(num_envs=num_envs)
+    cfg = PPOConfig()
+    agent = PPOAgent(cfg)
+
+    # The "latest" opponent that evolves alongside the agent
+    latest_opponent = PPOAgent(cfg)
+
+    # Historical zoo
+    opponent_zoo = OpponentZoo(cfg, max_size=zoo_max_size)
+    # Seed the zoo with the initial opponent
+    opponent_zoo.add(latest_opponent, update=0)
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    log_path = Path(output_dir) / "metrics.jsonl"
+
+    obs = env.reset()
+    total_rounds = 0
+    update_step = 0
+
+    all_obs, all_acts, all_rewards, all_logp = [], [], [], []
+    opp_all_obs, opp_all_acts, opp_all_rewards, opp_all_logp = [], [], [], []
+
+    while total_rounds < timesteps:
+        # Decide opponent for this step: latest or zoo sample
+        if np.random.random() < latest_prob or len(opponent_zoo) == 0:
+            current_opponent = latest_opponent
+        else:
+            current_opponent = opponent_zoo.sample()
+
+        # Both act
+        actions, log_probs = agent.act(obs)
+        opp_obs = np.zeros((num_envs, 3), dtype=np.float32)  # opponent doesn't condition on history for simplicity
+        opp_actions, opp_log_probs = current_opponent.act(opp_obs)
+
+        obs_next, rewards, opp_rewards = env.step(actions, opp_actions)
+
+        all_obs.append(obs)
+        all_acts.append(actions)
+        all_rewards.append(rewards)
+        all_logp.append(log_probs)
+
+        # Only collect opponent data when playing against latest (it's the one being trained)
+        if current_opponent is latest_opponent:
+            opp_all_obs.append(opp_obs)
+            opp_all_acts.append(opp_actions)
+            opp_all_rewards.append(opp_rewards)
+            opp_all_logp.append(opp_log_probs)
+
+        obs = obs_next
+        total_rounds += num_envs
+
+        # Update when we have enough data
+        if len(all_obs) * num_envs >= batch_size:
+            # Update agent
+            batch_obs = np.concatenate(all_obs)
+            batch_acts = np.concatenate(all_acts)
+            batch_rew = np.concatenate(all_rewards)
+            batch_logp = np.concatenate(all_logp)
+            agent.update(batch_obs, batch_acts, batch_rew, batch_logp)
+
+            # Update latest opponent (if we collected data)
+            if opp_all_obs:
+                opp_batch_obs = np.concatenate(opp_all_obs)
+                opp_batch_acts = np.concatenate(opp_all_acts)
+                opp_batch_rew = np.concatenate(opp_all_rewards)
+                opp_batch_logp = np.concatenate(opp_all_logp)
+                latest_opponent.update(opp_batch_obs, opp_batch_acts, opp_batch_rew, opp_batch_logp)
+
+            all_obs, all_acts, all_rewards, all_logp = [], [], [], []
+            opp_all_obs, opp_all_acts, opp_all_rewards, opp_all_logp = [], [], [], []
+
+            update_step += 1
+
+            # Add to zoo periodically
+            if update_step % zoo_update_interval == 0:
+                opponent_zoo.add(latest_opponent, update=update_step)
+
+            if update_step % log_interval == 0:
+                test_obs = np.zeros((1, 3), dtype=np.float32)
+                probs = agent.action_probs(test_obs)[0]
+                opp_probs = latest_opponent.action_probs(test_obs)[0]
+
+                metrics = {
+                    "update": update_step,
+                    "timesteps": total_rounds,
+                    "latest_prob": latest_prob,
+                    "zoo_size": len(opponent_zoo),
+                    "agent_probs": probs.tolist(),
+                    "opponent_probs": opp_probs.tolist(),
+                    "agent_exploitability": exploitability(probs),
+                    "opponent_exploitability": exploitability(opp_probs),
+                    "agent_entropy": action_entropy(probs),
+                    "opponent_entropy": action_entropy(opp_probs),
+                    "mean_reward": float(batch_rew.mean()),
+                }
+                with open(log_path, "a") as f:
+                    f.write(json.dumps(metrics) + "\n")
+
+                print(
+                    f"[{total_rounds:>8d}] A={latest_prob} zoo={len(opponent_zoo):>3d} "
+                    f"agent={probs.round(3)} expl={metrics['agent_exploitability']:.4f}"
+                )
+
+    print(f"\nDone. Metrics saved to {log_path}")
+    return log_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="RPS zoo training")
+    parser.add_argument("--latest-prob", "-A", type=float, default=0.1,
+                        help="Probability of playing latest opponent (default: 0.1)")
+    parser.add_argument("--timesteps", type=int, default=100_000)
+    parser.add_argument("--num-envs", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=512)
+    parser.add_argument("--zoo-update-interval", type=int, default=10)
+    parser.add_argument("--zoo-max-size", type=int, default=50)
+    parser.add_argument("--log-interval", type=int, default=100)
+    parser.add_argument("--output-dir", type=str, default="experiments/results/zoo")
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args()
+
+    train_zoo(
+        latest_prob=args.latest_prob,
+        timesteps=args.timesteps,
+        num_envs=args.num_envs,
+        batch_size=args.batch_size,
+        zoo_update_interval=args.zoo_update_interval,
+        zoo_max_size=args.zoo_max_size,
+        log_interval=args.log_interval,
+        output_dir=args.output_dir,
+        seed=args.seed,
+    )
+
+
+if __name__ == "__main__":
+    main()
