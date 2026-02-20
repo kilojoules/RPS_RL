@@ -139,6 +139,10 @@ With aggressive hyperparameters (ent=0.0, lr=0.05, hidden=4, clip=100), the A cu
 
 The agent over-fits to beating specific zoo members instead of generalizing toward Nash. The zoo's diversity becomes a liability — each historical opponent pulls the agent toward a different counter-strategy, and the agent collapses to whichever pure strategy beats the most recent zoo sample.
 
+**Aggressive A=0 (self-play)** — dramatic cycling between pure strategies:
+
+![Aggressive A=0](experiments/results/aggressive_selfplay_fixed.gif)
+
 **Aggressive A=0.05** — slight improvement over self-play, but still noisy:
 
 ![Aggressive A=0.05](experiments/results/aggressive_fixed_A0.05.gif)
