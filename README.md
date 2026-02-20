@@ -379,6 +379,22 @@ Thompson Sampling improves exploitability at all A values, with the effect **sca
 
 The Buffered algorithm benefits even more from Thompson than PPO does at high A (69% vs 29% improvement at A=0.90), suggesting that the replay buffer amplifies the value of opponent quality — good opponents produce better training data that persists across multiple updates.
 
+**PPO A=0.90** — Uniform wanders more; Thompson converges tighter to Nash:
+
+![PPO A=0.90 Uniform vs Thompson](experiments/results/ts_vs_uniform_A0.90.gif)
+
+**PPO A=0.70** — Thompson produces more direct convergence with less wandering:
+
+![PPO A=0.70 Uniform vs Thompson](experiments/results/ts_vs_uniform_A0.70.gif)
+
+**Buffered A=0.90** — The biggest improvement (69%); Thompson eliminates most of the trajectory scatter:
+
+![Buffered A=0.90 Uniform vs Thompson](experiments/results/ts_vs_uniform_buffered_A0.90.gif)
+
+**Buffered A=0.70** — Thompson keeps trajectories tightly clustered near Nash:
+
+![Buffered A=0.70 Uniform vs Thompson](experiments/results/ts_vs_uniform_buffered_A0.70.gif)
+
 ![Thompson diagnostics](experiments/results/ts_diagnostics.png)
 
 ```bash

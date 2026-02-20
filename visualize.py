@@ -98,12 +98,14 @@ def collect_all(results_dir):
         if "selfplay" in parts[0]:
             results["selfplay"].append(metrics)
         else:
+            is_thompson = parts[0].startswith("ts_")
             is_buffered = "buffered_" in parts[0]
-            prefix = "buffered_" if is_buffered else ""
+            ts_prefix = "ts_" if is_thompson else ""
+            buf_prefix = "buffered_" if is_buffered else ""
             match = re.search(r"zoo_A([\d.]+)", parts[0])
             if match:
                 A = float(match.group(1))
-                results[f"{prefix}A={A:.2f}"].append(metrics)
+                results[f"{ts_prefix}{buf_prefix}A={A:.2f}"].append(metrics)
 
     return results
 
@@ -224,6 +226,114 @@ def animate_simplex(metrics_list, title, output_path, max_frames=200):
     print(f"Saved: {output_path}")
 
 
+def animate_sidebyside(left_metrics, right_metrics, left_title, right_title,
+                       output_path, max_frames=200):
+    """Create a side-by-side GIF comparing two conditions on the simplex."""
+    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(11, 5.5))
+
+    seed_cmaps = ['Blues', 'Oranges', 'Greens', 'Purples', 'Reds']
+
+    all_ax_data = []
+    for ax, metrics_list, title in [(ax_l, left_metrics, left_title),
+                                     (ax_r, right_metrics, right_title)]:
+        draw_simplex(ax)
+        ax.set_title(title, fontsize=12, fontweight='bold', pad=10)
+
+        trajectories = []
+        for metrics in metrics_list:
+            agent_probs = np.array([m["agent_probs"] for m in metrics])
+            agent_pts = probs_to_2d(agent_probs)
+            has_opp = "opponent_probs" in metrics[0]
+            opp_pts = probs_to_2d(np.array([m["opponent_probs"] for m in metrics])) if has_opp else None
+            opp_probs = np.array([m["opponent_probs"] for m in metrics]) if has_opp else None
+
+            if len(agent_pts) > max_frames:
+                idx = np.linspace(0, len(agent_pts)-1, max_frames, dtype=int)
+                agent_pts = agent_pts[idx]
+                agent_probs = agent_probs[idx]
+                if has_opp:
+                    opp_pts = opp_pts[idx]
+                    opp_probs = opp_probs[idx]
+            trajectories.append((agent_pts, agent_probs, opp_pts, opp_probs))
+
+        collections = []
+        dots = []
+        for i in range(len(trajectories)):
+            cmap = plt.get_cmap(seed_cmaps[i % len(seed_cmaps)])
+            agent_lc = LineCollection([], linewidths=1.5, alpha=0.7)
+            ax.add_collection(agent_lc)
+            agent_dot, = ax.plot([], [], 'o', color=cmap(0.5), markersize=6,
+                                 markeredgecolor='black', markeredgewidth=0.5, zorder=10)
+            opp_lc = LineCollection([], linewidths=1.0, alpha=0.5, linestyles='dashed')
+            ax.add_collection(opp_lc)
+            opp_dot, = ax.plot([], [], 'D', color=cmap(0.5), markersize=5,
+                               markeredgecolor='black', markeredgewidth=0.5, zorder=10)
+            collections.append((agent_lc, opp_lc, cmap))
+            dots.append((agent_dot, opp_dot))
+
+        info = ax.text(0.02, 0.02, '', transform=ax.transAxes, fontsize=8,
+                       verticalalignment='bottom', fontfamily='monospace',
+                       bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+
+        all_ax_data.append((trajectories, collections, dots, info))
+
+    n_frames = max(
+        max((len(t[0]) for t in ad[0]), default=1)
+        for ad in all_ax_data
+    )
+
+    ax_r.text(0.98, 0.02, 'solid=agent  dashed=opponent\nlight=early  dark=late',
+              transform=ax_r.transAxes, fontsize=7, ha='right', va='bottom', color='gray',
+              bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+    def update(frame):
+        artists = []
+        for trajectories, collections, dots, info in all_ax_data:
+            for i, (agent_pts, agent_probs, opp_pts, opp_probs) in enumerate(trajectories):
+                idx = min(frame, len(agent_pts)-1)
+                agent_lc, opp_lc, cmap = collections[i]
+                agent_dot, opp_dot = dots[i]
+
+                if idx >= 1:
+                    segs = np.array([[agent_pts[j], agent_pts[j+1]] for j in range(idx)])
+                    t = np.linspace(0.25, 1.0, len(segs))
+                    agent_lc.set_segments(segs)
+                    agent_lc.set_color(cmap(t))
+                else:
+                    agent_lc.set_segments([])
+
+                color_now = cmap(min(1.0, 0.25 + 0.75 * idx / max(1, len(agent_pts)-1)))
+                agent_dot.set_data([agent_pts[idx, 0]], [agent_pts[idx, 1]])
+                agent_dot.set_color(color_now)
+                artists.extend([agent_lc, agent_dot])
+
+                if opp_pts is not None:
+                    opp_idx = min(frame, len(opp_pts)-1)
+                    if opp_idx >= 1:
+                        opp_segs = np.array([[opp_pts[j], opp_pts[j+1]] for j in range(opp_idx)])
+                        opp_t = np.linspace(0.25, 1.0, len(opp_segs))
+                        opp_lc.set_segments(opp_segs)
+                        opp_lc.set_color(cmap(opp_t))
+                    else:
+                        opp_lc.set_segments([])
+                    opp_color_now = cmap(min(1.0, 0.25 + 0.75 * opp_idx / max(1, len(opp_pts)-1)))
+                    opp_dot.set_data([opp_pts[opp_idx, 0]], [opp_pts[opp_idx, 1]])
+                    opp_dot.set_color(opp_color_now)
+                    artists.extend([opp_lc, opp_dot])
+
+            agent_pts0, agent_probs0 = trajectories[0][0], trajectories[0][1]
+            idx0 = min(frame, len(agent_probs0)-1)
+            p = agent_probs0[idx0]
+            info.set_text(f'R={p[0]:.3f} P={p[1]:.3f} S={p[2]:.3f}')
+            artists.append(info)
+        return artists
+
+    anim = FuncAnimation(fig, update, frames=n_frames, interval=50, blit=True)
+    anim.save(str(output_path), writer=PillowWriter(fps=20))
+    plt.close()
+    print(f"Saved: {output_path}")
+
+
 # --- Static comparison plot with color gradient ---
 
 def plot_simplex_comparison(results, output_dir, prefix="", title_suffix=""):
@@ -336,6 +446,22 @@ def main():
                     title,
                     output_dir / fname,
                 )
+
+    # Thompson vs Uniform side-by-side animations
+    if not args.skip_animations:
+        for prefix, algo_label in [("", "PPO"), ("buffered_", "Buffered")]:
+            for A in [0.50, 0.70, 0.90]:
+                uni_key = f"{prefix}A={A:.2f}"
+                ts_key = f"ts_{prefix}A={A:.2f}"
+                if uni_key in results and ts_key in results:
+                    print(f"Animating Thompson comparison: {algo_label} A={A:.2f}...")
+                    animate_sidebyside(
+                        results[uni_key][:3],
+                        results[ts_key][:3],
+                        f"Uniform (A={A:.2f})",
+                        f"Thompson (A={A:.2f})",
+                        output_dir / f"ts_vs_uniform_{prefix}A{A:.2f}.gif",
+                    )
 
     print("\nDone!")
 
