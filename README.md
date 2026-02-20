@@ -209,29 +209,65 @@ Without entropy regularization, the agent is too greedy to benefit from diverse 
 
 ![Aggressive A=0.9](experiments/results/aggressive_zoo_A0.9/aggressive_A0.9.gif)
 
+### Finding A*: Optimal Zoo Sampling Depends on Regularization
+
+By sweeping entropy coefficient and learning rate, we find three distinct regimes for A*:
+
+![A* comparison](experiments/results/a_star_comparison.png)
+
+| Config | Entropy | LR | A* | Exploitability at A* |
+|--------|---------|------|-----|---------------------|
+| Standard | 0.01 | 0.003 | 0.90 | 0.0075 |
+| No entropy | 0.0 | 0.003 | 0.05 | 0.0558 |
+| Aggressive | 0.0 | 0.05 | 0.0 | 0.1932 |
+
+**Standard config (A*=0.9)** — with entropy regularization, zoo always helps. The agent generalizes from diverse opponents:
+
+![Standard A*=0.9](experiments/results/A0.90_simplex.gif)
+
+**No entropy, standard LR (A*=0.05)** — interior optimum. A little zoo helps, but too much hurts. This is the U-shape the hypothesis predicts:
+
+![No entropy A*=0.05](experiments/results/moderate_Astar0.05.gif)
+
+For comparison, self-play (A=0) with the same config cycles more:
+
+![No entropy self-play](experiments/results/moderate_selfplay.gif)
+
+And too much zoo (A=0.5) makes the agent drift further from Nash:
+
+![No entropy A=0.5](experiments/results/moderate_A0.5.gif)
+
+**Aggressive config (A*=0.0)** — without entropy *and* with high LR, the agent is too greedy. Zoo makes things progressively worse:
+
+![Aggressive self-play](experiments/results/aggressive_selfplay_500k/aggressive_selfplay_500k.gif)
+
 ### Training Dynamics
 
 ![Exploitability over training](experiments/results/timeseries.png)
 
 ### Key Findings
 
-1. **Zoo sampling monotonically improves convergence to Nash.** More zoo = lower exploitability. No interior optimum (A*) observed. Both PPO and buffered agents show this pattern.
+1. **Zoo sampling helps with proper regularization.** With entropy regularization (standard config), more zoo = lower exploitability. A*=0.9.
 2. **Self-play cycles.** Without a zoo, PPO agents oscillate through strategies and never converge to Nash (1/3, 1/3, 1/3). Exploitability swings between 0.03 and 0.16.
 3. **Even small zoo mixing helps.** A=0.05 (5% zoo) cuts exploitability roughly in half vs self-play.
 4. **PPO benefits more from zoo sampling than the buffered agent.** At high A (heavy zoo), PPO reaches exploitability 0.0075 while buffered sits at 0.0236. The curves diverge at higher A — PPO's steep descent vs buffered's flatter curve. This matches the hypothesis prediction that memoryless algorithms are more *sensitive* to zoo sampling.
-5. **The buffered agent's flatter curve is consistent with theory.** The replay buffer provides some internal memory, making the agent less dependent on environmental diversity from the zoo. The curve shape is smoother and more gradual, as predicted.
-6. **No U-shape.** The hypothesis predicted an optimal interior A* — too much zoo should hurt because historical opponents become stale. In RPS this doesn't happen because the Nash equilibrium is fixed. The zoo never goes stale.
+5. **The buffered agent's flatter curve is consistent with theory.** The replay buffer provides some internal memory, making the agent less dependent on environmental diversity from the zoo.
+6. **A* depends on regularization.** Removing entropy regularization produces an interior A*=0.05 — a small amount of zoo helps, but too much hurts. With aggressive hyperparameters, even self-play outperforms any zoo configuration. This suggests A* is not just about memory capacity but also about the agent's ability to generalize from diverse opponents.
 
 ### Implications for the A-Parameter Hypothesis
 
-RPS confirms two of the three predictions:
+RPS confirms the core predictions and adds a nuance:
 
 **Confirmed:**
 - Zoo sampling helps memoryless PPO converge (self-play alone cycles)
-- PPO (memoryless) has a steeper A curve than the buffered agent — the "two curve shapes" prediction holds. PPO is more sensitive to A.
+- PPO (memoryless) has a steeper A curve than the buffered agent — the "two curve shapes" prediction holds
+- Interior A* exists when entropy regularization is removed — too much zoo hurts an under-regularized agent
+
+**New insight from RPS:**
+- A* depends on the agent's *generalization capacity*, not just memory. An agent that can generalize from diverse opponents (entropy-regularized) benefits monotonically from more zoo. An agent that over-fits to each opponent (no entropy) has an interior optimum or even A*=0.
 
 **Not testable in RPS:**
-- Whether there's an optimal interior A* where too much zoo hurts. RPS is too stationary — the Nash equilibrium is fixed, so old zoo checkpoints never become misleading. The U-shape prediction requires a non-stationary environment like Tag or WindGym where opponent strategies genuinely evolve over time.
+- Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The U-shape we observe comes from the agent's inability to generalize, not from stale opponents. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
 
 ## Quick Start
 
