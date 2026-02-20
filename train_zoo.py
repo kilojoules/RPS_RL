@@ -29,6 +29,8 @@ def train_zoo(
     output_dir: str = "experiments/results/zoo",
     seed: int = 0,
     cfg: PPOConfig = None,
+    sampling_strategy: str = "uniform",
+    competitiveness_threshold: float = 0.3,
 ):
     np.random.seed(seed)
 
@@ -41,7 +43,9 @@ def train_zoo(
     latest_opponent = PPOAgent(cfg)
 
     # Historical zoo
-    opponent_zoo = OpponentZoo(cfg, max_size=zoo_max_size)
+    opponent_zoo = OpponentZoo(cfg, max_size=zoo_max_size,
+                               sampling_strategy=sampling_strategy,
+                               competitiveness_threshold=competitiveness_threshold)
     # Seed the zoo with the initial opponent
     opponent_zoo.add(latest_opponent, update=0)
 
@@ -57,8 +61,9 @@ def train_zoo(
 
     while total_rounds < timesteps:
         # Decide opponent for this step: zoo sample or latest
+        zoo_idx = None
         if len(opponent_zoo) > 0 and np.random.random() < latest_prob:
-            current_opponent = opponent_zoo.sample()
+            current_opponent, zoo_idx = opponent_zoo.sample()
         else:
             current_opponent = latest_opponent
 
@@ -68,6 +73,10 @@ def train_zoo(
         opp_actions, opp_log_probs = current_opponent.act(opp_obs)
 
         obs_next, rewards, opp_rewards = env.step(actions, opp_actions)
+
+        # Update Thompson Sampling posterior
+        if zoo_idx is not None:
+            opponent_zoo.update_outcome(zoo_idx, float(rewards.mean()))
 
         all_obs.append(obs)
         all_acts.append(actions)
@@ -119,6 +128,7 @@ def train_zoo(
                     "update": update_step,
                     "timesteps": total_rounds,
                     "latest_prob": latest_prob,
+                    "sampling_strategy": sampling_strategy,
                     "zoo_size": len(opponent_zoo),
                     "agent_probs": probs.tolist(),
                     "opponent_probs": opp_probs.tolist(),
@@ -128,6 +138,8 @@ def train_zoo(
                     "opponent_entropy": action_entropy(opp_probs),
                     "mean_reward": float(batch_rew.mean()),
                 }
+                if sampling_strategy == "thompson":
+                    metrics.update(opponent_zoo.ts_diagnostics())
                 with open(log_path, "a") as f:
                     f.write(json.dumps(metrics) + "\n")
 
@@ -152,6 +164,11 @@ def main():
     parser.add_argument("--log-interval", type=int, default=100)
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--sampling-strategy", type=str, default="uniform",
+                        choices=["uniform", "thompson"],
+                        help="Zoo sampling strategy (default: uniform)")
+    parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
+                        help="Thompson Sampling competitiveness threshold (default: 0.3)")
     parser.add_argument("--entropy-coef", type=float, default=0.01)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--hidden", type=int, default=32)
@@ -178,6 +195,8 @@ def main():
         output_dir=args.output_dir,
         seed=args.seed,
         cfg=cfg,
+        sampling_strategy=args.sampling_strategy,
+        competitiveness_threshold=args.competitiveness_threshold,
     )
 
 

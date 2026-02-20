@@ -1,7 +1,7 @@
 {
   "experiments": [
     {
-      "name": "selfplay_s0",
+      "name": "selfplay_s3",
       "return_code": 0
     },
     {
@@ -9,11 +9,15 @@
       "return_code": 0
     },
     {
-      "name": "selfplay_s2",
+      "name": "selfplay_s7",
       "return_code": 0
     },
     {
-      "name": "selfplay_s3",
+      "name": "selfplay_s0",
+      "return_code": 0
+    },
+    {
+      "name": "selfplay_s2",
       "return_code": 0
     },
     {
@@ -29,7 +33,7 @@
       "return_code": 0
     },
     {
-      "name": "selfplay_s7",
+      "name": "ts_zoo_A0.05_s0",
       "return_code": 0
     },
     {
@@ -37,567 +41,563 @@
       "return_code": 0
     },
     {
+      "name": "ts_zoo_A0.05_s4",
+      "return_code": 0
+    },
+    {
+      "name": "ts_zoo_A0.05_s3",
+      "return_code": 0
+    },
+    {
+      "name": "ts_zoo_A0.05_s2",
+      "return_code": 0
+    },
+    {
       "name": "selfplay_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s0",
+      "name": "ts_zoo_A0.05_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s1",
+      "name": "ts_zoo_A0.05_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s2",
+      "name": "ts_zoo_A0.05_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s3",
+      "name": "ts_zoo_A0.05_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s4",
+      "name": "ts_zoo_A0.10_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s5",
+      "name": "ts_zoo_A0.05_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s6",
+      "name": "ts_zoo_A0.05_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s7",
+      "name": "ts_zoo_A0.10_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s8",
+      "name": "ts_zoo_A0.10_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.05_s9",
+      "name": "ts_zoo_A0.10_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s0",
+      "name": "ts_zoo_A0.10_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s1",
+      "name": "ts_zoo_A0.10_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s2",
+      "name": "ts_zoo_A0.20_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s3",
+      "name": "ts_zoo_A0.10_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s4",
+      "name": "ts_zoo_A0.10_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s5",
+      "name": "ts_zoo_A0.10_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s6",
+      "name": "ts_zoo_A0.10_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s7",
+      "name": "ts_zoo_A0.20_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s8",
+      "name": "ts_zoo_A0.20_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.10_s9",
+      "name": "ts_zoo_A0.20_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s0",
+      "name": "ts_zoo_A0.20_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s1",
+      "name": "ts_zoo_A0.20_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s2",
+      "name": "ts_zoo_A0.20_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s4",
+      "name": "ts_zoo_A0.20_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s6",
+      "name": "ts_zoo_A0.20_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s3",
+      "name": "ts_zoo_A0.20_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s5",
+      "name": "ts_zoo_A0.30_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s7",
+      "name": "ts_zoo_A0.30_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s8",
+      "name": "ts_zoo_A0.30_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.20_s9",
+      "name": "ts_zoo_A0.30_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s0",
+      "name": "ts_zoo_A0.30_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s1",
+      "name": "ts_zoo_A0.30_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s2",
+      "name": "ts_zoo_A0.30_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s3",
+      "name": "ts_zoo_A0.30_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s4",
+      "name": "ts_zoo_A0.30_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s5",
+      "name": "ts_zoo_A0.30_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s6",
+      "name": "ts_zoo_A0.50_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s7",
+      "name": "ts_zoo_A0.50_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s8",
+      "name": "ts_zoo_A0.50_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.30_s9",
+      "name": "ts_zoo_A0.50_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s0",
+      "name": "ts_zoo_A0.50_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s1",
+      "name": "ts_zoo_A0.50_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s2",
+      "name": "ts_zoo_A0.50_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s3",
+      "name": "ts_zoo_A0.50_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s4",
+      "name": "ts_zoo_A0.50_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s5",
+      "name": "ts_zoo_A0.50_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s6",
+      "name": "ts_zoo_A0.70_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s7",
+      "name": "ts_zoo_A0.70_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s8",
+      "name": "ts_zoo_A0.70_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.50_s9",
+      "name": "ts_zoo_A0.70_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s3",
+      "name": "ts_zoo_A0.70_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s0",
+      "name": "ts_zoo_A0.70_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s1",
+      "name": "ts_zoo_A0.70_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s2",
+      "name": "ts_zoo_A0.70_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s4",
+      "name": "ts_zoo_A0.90_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s5",
+      "name": "ts_zoo_A0.70_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s7",
+      "name": "ts_zoo_A0.70_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s8",
+      "name": "ts_zoo_A0.90_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s6",
+      "name": "ts_zoo_A0.90_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.70_s9",
+      "name": "ts_zoo_A0.90_s2",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s0",
+      "name": "ts_zoo_A0.90_s4",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s1",
+      "name": "ts_zoo_A0.90_s5",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s2",
+      "name": "ts_zoo_A0.90_s6",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s3",
+      "name": "ts_zoo_A0.90_s7",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s4",
+      "name": "ts_zoo_A0.90_s8",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s5",
+      "name": "ts_zoo_A0.90_s9",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s6",
+      "name": "ts_buffered_zoo_A0.05_s0",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s7",
+      "name": "ts_buffered_zoo_A0.05_s1",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s8",
+      "name": "ts_buffered_zoo_A0.05_s3",
       "return_code": 0
     },
     {
-      "name": "zoo_A0.90_s9",
+      "name": "ts_buffered_zoo_A0.05_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s0",
+      "name": "ts_buffered_zoo_A0.05_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s1",
+      "name": "ts_buffered_zoo_A0.05_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s2",
+      "name": "ts_buffered_zoo_A0.05_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s3",
+      "name": "ts_buffered_zoo_A0.05_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s5",
+      "name": "ts_buffered_zoo_A0.05_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s6",
+      "name": "ts_buffered_zoo_A0.05_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s7",
+      "name": "ts_buffered_zoo_A0.10_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s4",
+      "name": "ts_buffered_zoo_A0.10_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s8",
+      "name": "ts_buffered_zoo_A0.10_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.05_s9",
+      "name": "ts_buffered_zoo_A0.10_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s0",
+      "name": "ts_buffered_zoo_A0.10_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s1",
+      "name": "ts_buffered_zoo_A0.10_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s2",
+      "name": "ts_buffered_zoo_A0.10_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s3",
+      "name": "ts_buffered_zoo_A0.10_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s4",
+      "name": "ts_buffered_zoo_A0.20_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s5",
+      "name": "ts_buffered_zoo_A0.10_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s6",
+      "name": "ts_buffered_zoo_A0.20_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s7",
+      "name": "ts_buffered_zoo_A0.10_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s8",
+      "name": "ts_buffered_zoo_A0.20_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.10_s9",
+      "name": "ts_buffered_zoo_A0.20_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s0",
+      "name": "ts_buffered_zoo_A0.20_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s1",
+      "name": "ts_buffered_zoo_A0.20_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s2",
+      "name": "ts_buffered_zoo_A0.20_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s3",
+      "name": "ts_buffered_zoo_A0.20_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s4",
+      "name": "ts_buffered_zoo_A0.20_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s5",
+      "name": "ts_buffered_zoo_A0.20_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s6",
+      "name": "ts_buffered_zoo_A0.30_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s7",
+      "name": "ts_buffered_zoo_A0.30_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s8",
+      "name": "ts_buffered_zoo_A0.30_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.20_s9",
+      "name": "ts_buffered_zoo_A0.30_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s0",
+      "name": "ts_buffered_zoo_A0.30_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s1",
+      "name": "ts_buffered_zoo_A0.30_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s2",
+      "name": "ts_buffered_zoo_A0.30_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s3",
+      "name": "ts_buffered_zoo_A0.30_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s4",
+      "name": "ts_buffered_zoo_A0.30_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s5",
+      "name": "ts_buffered_zoo_A0.30_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s6",
+      "name": "ts_buffered_zoo_A0.50_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s7",
+      "name": "ts_buffered_zoo_A0.50_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s8",
+      "name": "ts_buffered_zoo_A0.50_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.30_s9",
+      "name": "ts_buffered_zoo_A0.50_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s0",
+      "name": "ts_buffered_zoo_A0.50_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s1",
+      "name": "ts_buffered_zoo_A0.50_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s2",
+      "name": "ts_buffered_zoo_A0.50_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s3",
+      "name": "ts_buffered_zoo_A0.50_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s4",
+      "name": "ts_buffered_zoo_A0.50_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s5",
+      "name": "ts_buffered_zoo_A0.50_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s6",
+      "name": "ts_buffered_zoo_A0.70_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s7",
+      "name": "ts_buffered_zoo_A0.70_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s8",
+      "name": "ts_buffered_zoo_A0.70_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.50_s9",
+      "name": "ts_buffered_zoo_A0.70_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s0",
+      "name": "ts_buffered_zoo_A0.70_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s3",
+      "name": "ts_buffered_zoo_A0.70_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s1",
+      "name": "ts_buffered_zoo_A0.70_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s2",
+      "name": "ts_buffered_zoo_A0.70_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s4",
+      "name": "ts_buffered_zoo_A0.70_s9",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s5",
+      "name": "ts_buffered_zoo_A0.90_s0",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s6",
+      "name": "ts_buffered_zoo_A0.90_s1",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s7",
+      "name": "ts_buffered_zoo_A0.70_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s9",
+      "name": "ts_buffered_zoo_A0.90_s3",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.70_s8",
+      "name": "ts_buffered_zoo_A0.90_s2",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s0",
+      "name": "ts_buffered_zoo_A0.90_s5",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s1",
+      "name": "ts_buffered_zoo_A0.90_s4",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s2",
+      "name": "ts_buffered_zoo_A0.90_s6",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s3",
+      "name": "ts_buffered_zoo_A0.90_s7",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s4",
+      "name": "ts_buffered_zoo_A0.90_s8",
       "return_code": 0
     },
     {
-      "name": "buffered_zoo_A0.90_s5",
-      "return_code": 0
-    },
-    {
-      "name": "buffered_zoo_A0.90_s6",
-      "return_code": 0
-    },
-    {
-      "name": "buffered_zoo_A0.90_s7",
-      "return_code": 0
-    },
-    {
-      "name": "buffered_zoo_A0.90_s8",
-      "return_code": 0
-    },
-    {
-      "name": "buffered_zoo_A0.90_s9",
+      "name": "ts_buffered_zoo_A0.90_s9",
       "return_code": 0
     }
   ]

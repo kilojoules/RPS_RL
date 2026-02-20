@@ -1,0 +1,5 @@
+[   51200] A=0.1 zoo= 11 buf=10000 agent=[0.324 0.339 0.337] expl=0.0144
+[  102400] A=0.1 zoo= 21 buf=10000 agent=[0.284 0.358 0.358] expl=0.0745
+[  153600] A=0.1 zoo= 31 buf=10000 agent=[0.247 0.379 0.374] expl=0.1324
+
+Done. Metrics saved to experiments/results/buffered_zoo_A0.10/seed_0/metrics.jsonl

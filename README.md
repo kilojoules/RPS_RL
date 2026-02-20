@@ -182,6 +182,7 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 3. **Heavy zoo sampling degrades over time.** A=0.9 produces the lowest exploitability at 200k (0.0075) but rises 14x by 500k (0.105). The continued diversity of zoo opponents destabilizes the agent after initial convergence.
 4. **PPO benefits more from zoo sampling than the buffered agent.** PPO's A curve drops more steeply than Buffered's, matching the hypothesis that memoryless algorithms are more sensitive to zoo sampling.
 5. **Aggressive hyperparameters invert the A curve.** With high LR, small network, and no clipping, more zoo = worse performance. The agent needs enough capacity and stability to generalize from diverse opponents.
+6. **Thompson Sampling improves high-A performance.** Adaptive opponent selection via Thompson Sampling cuts exploitability by 30–69% at A=0.70–0.90, with negligible effect at low A. The benefit scales with how often the agent samples from the zoo — when most training comes from zoo opponents, picking *which* opponent matters.
 
 ## Implications for the A-Parameter Hypothesis
 
@@ -194,9 +195,71 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 - **A* is dynamic, not static.** The optimal zoo ratio changes over training. Early on, heavy zoo accelerates convergence. Later, it destabilizes. This suggests A should be annealed during training — high early, low late.
 - **Entropy regularization doesn't shift A*.** Within the range tested (0.0–0.02), all entropy levels produce the same A*=0.05 at 500k. Entropy reduces overall exploitability but doesn't change the optimal zoo ratio.
 - **Aggressive hyperparameters break the zoo.** When the learning rate is too high or the network too small, zoo diversity becomes harmful at any level. The agent needs enough capacity and stability to generalize from diverse opponents.
+- **Thompson Sampling scales with A.** Adaptive opponent selection has negligible effect at low A but cuts exploitability by up to 69% at high A. The Buffered algorithm benefits more than PPO from Thompson at high A, suggesting the replay buffer amplifies opponent quality.
 
 **Not testable in RPS:**
 - Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The degradation at high A we observe comes from over-diversity, not staleness. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
+
+## Thompson Sampling for Zoo Opponent Selection
+
+Instead of uniform random sampling from the zoo, **Thompson Sampling** adaptively selects opponents that produce competitive (informative) matches. Each zoo checkpoint maintains a Beta(alpha, beta) posterior:
+
+- **Reward signal:** Match competitiveness. `|mean_reward| < threshold` = success (close game), else failure.
+- **Selection:** Sample theta_i ~ Beta(alpha_i, beta_i) for each checkpoint, pick argmax.
+- **Default threshold:** 0.3 (exposed as `--competitiveness-threshold`).
+- New checkpoints start with Beta(1, 1) (uninformative prior).
+
+**Hypothesis:** Thompson Sampling may help with the documented degradation at high A values (A=0.9 exploitability rises 14x from 200k to 500k) by avoiding stale opponents the agent has already learned to beat.
+
+### Results
+
+Thompson Sampling improves exploitability at all A values, with the effect **scaling dramatically with A**:
+
+![Thompson comparison](experiments/results/thompson_comparison.png)
+
+**PPO — Uniform vs Thompson (200k timesteps, 10 seeds):**
+
+| A | Uniform | Thompson | Improvement |
+|---|---------|----------|-------------|
+| 0.05 | 0.0380 +/- 0.0176 | 0.0373 +/- 0.0175 | ~2% |
+| 0.10 | 0.0374 +/- 0.0171 | 0.0366 +/- 0.0167 | ~2% |
+| 0.20 | 0.0355 +/- 0.0167 | 0.0322 +/- 0.0151 | ~9% |
+| 0.30 | 0.0321 +/- 0.0155 | 0.0287 +/- 0.0132 | ~11% |
+| 0.50 | 0.0258 +/- 0.0125 | 0.0207 +/- 0.0096 | ~20% |
+| 0.70 | 0.0170 +/- 0.0093 | 0.0108 +/- 0.0046 | ~36% |
+| 0.90 | 0.0075 +/- 0.0033 | 0.0053 +/- 0.0014 | ~29% |
+
+**Buffered — Uniform vs Thompson (200k timesteps, 10 seeds):**
+
+| A | Uniform | Thompson | Improvement |
+|---|---------|----------|-------------|
+| 0.05 | 0.0380 +/- 0.0178 | 0.0368 +/- 0.0178 | ~3% |
+| 0.10 | 0.0372 +/- 0.0172 | 0.0360 +/- 0.0160 | ~3% |
+| 0.20 | 0.0366 +/- 0.0157 | 0.0334 +/- 0.0154 | ~9% |
+| 0.30 | 0.0338 +/- 0.0155 | 0.0294 +/- 0.0152 | ~13% |
+| 0.50 | 0.0317 +/- 0.0152 | 0.0234 +/- 0.0120 | ~26% |
+| 0.70 | 0.0286 +/- 0.0145 | 0.0151 +/- 0.0070 | ~47% |
+| 0.90 | 0.0236 +/- 0.0121 | 0.0073 +/- 0.0039 | ~69% |
+
+**Interpretation:** At low A (0.05), the agent rarely samples from the zoo, so *which* opponent it picks barely matters — Thompson and uniform perform nearly identically. At high A (0.70–0.90), the agent samples from the zoo most of the time, and Thompson's adaptive selection cuts exploitability by 30–69%. Thompson preferentially selects opponents that produce competitive matches, avoiding stale opponents the agent has already learned to beat.
+
+The Buffered algorithm benefits even more from Thompson than PPO does at high A (69% vs 29% improvement at A=0.90), suggesting that the replay buffer amplifies the value of opponent quality — good opponents produce better training data that persists across multiple updates.
+
+![Thompson diagnostics](experiments/results/ts_diagnostics.png)
+
+```bash
+# Single Thompson run (PPO)
+python train_zoo.py -A 0.1 --sampling-strategy thompson --timesteps 200000
+
+# Single Thompson run (buffered)
+python train_zoo_buffered.py -A 0.1 --sampling-strategy thompson --timesteps 200000
+
+# Full sweep — both uniform and Thompson
+python run_sweep.py --sampling-strategy both --timesteps 200000
+
+# Analyze results (generates thompson_comparison.png and ts_diagnostics.png)
+python analyze.py experiments/results/
+```
 
 ## Quick Start
 

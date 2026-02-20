@@ -1,0 +1,5 @@
+[   51200] A=0.2 zoo= 11 agent=[0.319 0.339 0.342] expl=0.0195
+[  102400] A=0.2 zoo= 21 agent=[0.288 0.353 0.358] expl=0.0654
+[  153600] A=0.2 zoo= 31 agent=[0.259 0.372 0.368] expl=0.1130
+
+Done. Metrics saved to experiments/results/ts_zoo_A0.20/seed_0/metrics.jsonl

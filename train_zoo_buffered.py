@@ -20,27 +20,61 @@ from ppo import PPOAgent, PPOConfig
 class BufferedZoo:
     """Zoo that stores BufferedAgent checkpoints."""
 
-    def __init__(self, cfg: BufferedConfig, max_size: int = 50):
+    def __init__(self, cfg: BufferedConfig, max_size: int = 50,
+                 sampling_strategy: str = "uniform",
+                 competitiveness_threshold: float = 0.3):
         self.cfg = cfg
         self.max_size = max_size
+        self.sampling_strategy = sampling_strategy
+        self.competitiveness_threshold = competitiveness_threshold
         self.checkpoints = []
+        self.alphas: list[float] = []
+        self.betas: list[float] = []
 
     def add(self, agent: BufferedAgent, update: int):
         self.checkpoints.append({
             "params": agent.get_state(),
             "update": update,
         })
+        self.alphas.append(1.0)
+        self.betas.append(1.0)
         if len(self.checkpoints) > self.max_size:
             self.checkpoints.pop(0)
+            self.alphas.pop(0)
+            self.betas.pop(0)
 
-    def sample(self) -> BufferedAgent:
+    def sample(self) -> tuple[BufferedAgent, int]:
         if not self.checkpoints:
             raise ValueError("Zoo is empty")
         import random
-        ckpt = random.choice(self.checkpoints)
+        if self.sampling_strategy == "thompson" and len(self.checkpoints) > 1:
+            thetas = [np.random.beta(a, b) for a, b in zip(self.alphas, self.betas)]
+            idx = int(np.argmax(thetas))
+        else:
+            idx = random.randrange(len(self.checkpoints))
+        ckpt = self.checkpoints[idx]
         agent = BufferedAgent(self.cfg)
         agent.load_state(ckpt["params"])
-        return agent
+        return agent, idx
+
+    def update_outcome(self, idx: int, mean_reward: float):
+        if idx < 0 or idx >= len(self.checkpoints):
+            return
+        if abs(mean_reward) < self.competitiveness_threshold:
+            self.alphas[idx] += 1.0
+        else:
+            self.betas[idx] += 1.0
+
+    def ts_diagnostics(self) -> dict[str, float]:
+        if not self.alphas:
+            return {}
+        return {
+            "ts_alpha_mean": float(np.mean(self.alphas)),
+            "ts_beta_mean": float(np.mean(self.betas)),
+            "ts_success_rate": float(
+                np.mean([a / (a + b) for a, b in zip(self.alphas, self.betas)])
+            ),
+        }
 
     def __len__(self):
         return len(self.checkpoints)
@@ -58,6 +92,8 @@ def train_zoo_buffered(
     output_dir: str = "experiments/results/zoo_buffered",
     seed: int = 0,
     cfg: BufferedConfig = None,
+    sampling_strategy: str = "uniform",
+    competitiveness_threshold: float = 0.3,
 ):
     np.random.seed(seed)
 
@@ -67,7 +103,9 @@ def train_zoo_buffered(
     agent = BufferedAgent(cfg)
     latest_opponent = BufferedAgent(cfg)
 
-    opponent_zoo = BufferedZoo(cfg, max_size=zoo_max_size)
+    opponent_zoo = BufferedZoo(cfg, max_size=zoo_max_size,
+                               sampling_strategy=sampling_strategy,
+                               competitiveness_threshold=competitiveness_threshold)
     opponent_zoo.add(latest_opponent, update=0)
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
@@ -80,8 +118,9 @@ def train_zoo_buffered(
 
     while total_rounds < timesteps:
         # Decide opponent: zoo sample or latest
+        zoo_idx = None
         if len(opponent_zoo) > 0 and np.random.random() < latest_prob:
-            current_opponent = opponent_zoo.sample()
+            current_opponent, zoo_idx = opponent_zoo.sample()
         else:
             current_opponent = latest_opponent
 
@@ -91,6 +130,10 @@ def train_zoo_buffered(
         opp_actions, _ = current_opponent.act(opp_obs)
 
         obs_next, rewards, opp_rewards = env.step(actions, opp_actions)
+
+        # Update Thompson Sampling posterior
+        if zoo_idx is not None:
+            opponent_zoo.update_outcome(zoo_idx, float(rewards.mean()))
 
         # Store in replay buffers
         agent.store(obs, actions, rewards)
@@ -119,6 +162,7 @@ def train_zoo_buffered(
                     "update": update_step,
                     "timesteps": total_rounds,
                     "latest_prob": latest_prob,
+                    "sampling_strategy": sampling_strategy,
                     "zoo_size": len(opponent_zoo),
                     "agent_probs": probs.tolist(),
                     "agent_exploitability": exploitability(probs),
@@ -126,6 +170,8 @@ def train_zoo_buffered(
                     "mean_reward": float(rewards.mean()),
                     "buffer_size": len(agent.buffer),
                 }
+                if sampling_strategy == "thompson":
+                    metrics.update(opponent_zoo.ts_diagnostics())
                 with open(log_path, "a") as f:
                     f.write(json.dumps(metrics) + "\n")
 
@@ -150,6 +196,11 @@ def main():
     parser.add_argument("--log-interval", type=int, default=100)
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo_buffered")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--sampling-strategy", type=str, default="uniform",
+                        choices=["uniform", "thompson"],
+                        help="Zoo sampling strategy (default: uniform)")
+    parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
+                        help="Thompson Sampling competitiveness threshold (default: 0.3)")
     parser.add_argument("--entropy-coef", type=float, default=0.01)
     parser.add_argument("--lr", type=float, default=3e-3)
     parser.add_argument("--hidden", type=int, default=32)
@@ -173,6 +224,8 @@ def main():
         output_dir=args.output_dir,
         seed=args.seed,
         cfg=cfg,
+        sampling_strategy=args.sampling_strategy,
+        competitiveness_threshold=args.competitiveness_threshold,
     )
 
 

@@ -57,14 +57,17 @@ def collect_results(results_dir: Path):
         if "selfplay" in parts[0]:
             results["selfplay"].append({"final": final, "timeseries": metrics})
         else:
-            # Check for buffered_ prefix
-            is_buffered = "buffered_" in parts[0]
-            prefix = "buffered_" if is_buffered else ""
+            # Check for ts_ (Thompson Sampling) and buffered_ prefixes
+            is_thompson = parts[0].startswith("ts_")
+            remainder = parts[0][3:] if is_thompson else parts[0]
+            is_buffered = remainder.startswith("buffered_")
+            ts_prefix = "ts_" if is_thompson else ""
+            buf_prefix = "buffered_" if is_buffered else ""
 
             match = re.search(r"zoo_A([\d.]+)", parts[0])
             if match:
                 A = float(match.group(1))
-                results[f"{prefix}zoo_A{A:.2f}"].append({
+                results[f"{ts_prefix}{buf_prefix}zoo_A{A:.2f}"].append({
                     "final": final, "timeseries": metrics, "A": A
                 })
 
@@ -72,15 +75,21 @@ def collect_results(results_dir: Path):
 
 
 def _collect_curve(results, prefix=""):
-    """Extract A values and stats for a given algorithm prefix."""
+    """Extract A values and stats for a given algorithm prefix.
+
+    prefix examples: "", "buffered_", "ts_", "ts_buffered_"
+    """
     a_vals, expl_means, expl_stds = [], [], []
     ent_means, ent_stds = [], []
 
     for key, runs in sorted(results.items()):
         if not key.startswith(f"{prefix}zoo_A"):
             continue
-        # Skip keys from the other algorithm
-        if prefix == "" and key.startswith("buffered_"):
+        # Skip keys from other prefixes that happen to match
+        # e.g. when prefix="" we must skip "buffered_" and "ts_" keys
+        if prefix == "" and (key.startswith("buffered_") or key.startswith("ts_")):
+            continue
+        if prefix == "buffered_" and key.startswith("ts_"):
             continue
         A = runs[0]["A"]
         expls = [r["final"]["exploitability"] for r in runs]
@@ -193,6 +202,105 @@ def plot_timeseries(results, output_dir: Path):
     plt.close()
 
 
+def plot_a_curve_comparison(results, output_dir: Path):
+    """Plot uniform vs Thompson Sampling A curves side by side."""
+    has_ts_ppo = any(k.startswith("ts_zoo_A") for k in results)
+    has_ts_buffered = any(k.startswith("ts_buffered_zoo_A") for k in results)
+    has_ppo = any(k.startswith("zoo_A") and not k.startswith("buffered_") and not k.startswith("ts_") for k in results)
+    has_buffered = any(k.startswith("buffered_zoo_A") for k in results)
+
+    if not (has_ts_ppo or has_ts_buffered):
+        return  # No Thompson data to compare
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+    # PPO: uniform vs Thompson
+    if has_ppo:
+        a_vals, expl_means, expl_stds, _, _ = _collect_curve(results, "")
+        ax1.errorbar(a_vals, expl_means, yerr=expl_stds, fmt="o-", capsize=4,
+                     color="C0", label="PPO uniform")
+    if has_ts_ppo:
+        a_vals_ts, expl_means_ts, expl_stds_ts, _, _ = _collect_curve(results, "ts_")
+        ax1.errorbar(a_vals_ts, expl_means_ts, yerr=expl_stds_ts, fmt="s--", capsize=4,
+                     color="C2", label="PPO Thompson")
+
+    # Buffered: uniform vs Thompson
+    if has_buffered:
+        a_vals_b, expl_means_b, expl_stds_b, _, _ = _collect_curve(results, "buffered_")
+        ax2.errorbar(a_vals_b, expl_means_b, yerr=expl_stds_b, fmt="^-", capsize=4,
+                     color="C1", label="Buffered uniform")
+    if has_ts_buffered:
+        a_vals_tb, expl_means_tb, expl_stds_tb, _, _ = _collect_curve(results, "ts_buffered_")
+        ax2.errorbar(a_vals_tb, expl_means_tb, yerr=expl_stds_tb, fmt="v--", capsize=4,
+                     color="C3", label="Buffered Thompson")
+
+    # Self-play baseline
+    if "selfplay" in results:
+        sp_expls = [r["final"]["exploitability"] for r in results["selfplay"]]
+        sp_mean = np.mean(sp_expls)
+        sp_std = np.std(sp_expls)
+        for ax in (ax1, ax2):
+            ax.axhline(sp_mean, color="red", linestyle="--", alpha=0.5, label="Self-play (A=0)")
+            ax.axhspan(sp_mean - sp_std, sp_mean + sp_std, alpha=0.1, color="red")
+
+    for ax, title in zip((ax1, ax2), ("PPO", "Buffered")):
+        ax.axhline(0.0, color="gray", linestyle=":", alpha=0.5)
+        ax.set_xlabel("A (zoo sampling probability)")
+        ax.set_ylabel("Exploitability")
+        ax.set_title(f"Uniform vs Thompson — {title}")
+        ax.legend()
+        ax.set_xlim(-0.05, 1.05)
+
+    plt.tight_layout()
+    fig_path = output_dir / "thompson_comparison.png"
+    plt.savefig(fig_path, dpi=150)
+    print(f"Saved: {fig_path}")
+    plt.close()
+
+
+def plot_ts_diagnostics(results, output_dir: Path):
+    """Plot Thompson Sampling success rate evolution over training."""
+    ts_keys = [k for k in sorted(results.keys()) if k.startswith("ts_")]
+    if not ts_keys:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    for ax, prefix, title in [
+        (axes[0], "ts_", "PPO Thompson"),
+        (axes[1], "ts_buffered_", "Buffered Thompson"),
+    ]:
+        keys = [k for k in sorted(results.keys()) if k.startswith(f"{prefix}zoo_A")]
+        if prefix == "ts_":
+            keys = [k for k in keys if not k.startswith("ts_buffered_")]
+        if not keys:
+            ax.set_visible(False)
+            continue
+
+        colors = plt.cm.viridis(np.linspace(0, 1, len(keys)))
+        for ci, key in enumerate(keys):
+            A = results[key][0]["A"]
+            for run in results[key]:
+                ts = run["timeseries"]
+                steps = [m["timesteps"] for m in ts if "ts_success_rate" in m]
+                rates = [m["ts_success_rate"] for m in ts if "ts_success_rate" in m]
+                if steps:
+                    ax.plot(steps, rates, color=colors[ci], alpha=0.3, linewidth=0.5)
+            ax.plot([], [], color=colors[ci], label=f"A={A:.2f}")
+
+        ax.set_xlabel("Timesteps")
+        ax.set_ylabel("TS Success Rate (competitive matches)")
+        ax.set_title(f"Thompson Sampling Diagnostics — {title}")
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
+        ax.set_ylim(-0.05, 1.05)
+
+    plt.tight_layout()
+    fig_path = output_dir / "ts_diagnostics.png"
+    plt.savefig(fig_path, dpi=150)
+    print(f"Saved: {fig_path}")
+    plt.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Analyze RPS A-parameter sweep")
     parser.add_argument("results_dir", type=str, help="Path to results directory")
@@ -223,16 +331,29 @@ def main():
 
     plot_a_curve(results, output_dir)
     plot_timeseries(results, output_dir)
+    plot_a_curve_comparison(results, output_dir)
+    plot_ts_diagnostics(results, output_dir)
 
     # Print summary table
     print("\n" + "=" * 70)
     print("SUMMARY")
     print("=" * 70)
 
-    for prefix, label in [("", "PPO (memoryless)"), ("buffered_", "Buffered (replay buffer)")]:
+    for prefix, label in [
+        ("", "PPO (memoryless)"),
+        ("buffered_", "Buffered (replay buffer)"),
+        ("ts_", "PPO Thompson"),
+        ("ts_buffered_", "Buffered Thompson"),
+    ]:
         keys = [k for k in sorted(results.keys())
-                if k.startswith(f"{prefix}zoo_A") and
-                (prefix != "" or not k.startswith("buffered_"))]
+                if k.startswith(f"{prefix}zoo_A")]
+        # Filter out keys that belong to a longer prefix
+        if prefix == "":
+            keys = [k for k in keys if not k.startswith("buffered_") and not k.startswith("ts_")]
+        elif prefix == "buffered_":
+            keys = [k for k in keys if not k.startswith("ts_")]
+        elif prefix == "ts_":
+            keys = [k for k in keys if not k.startswith("ts_buffered_")]
         if not keys:
             continue
 
