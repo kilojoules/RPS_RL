@@ -194,10 +194,6 @@ Entropy regularization slightly reduces overall exploitability (all curves shift
 **Not testable in RPS:**
 - Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The degradation at high A we observe comes from over-diversity, not staleness. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
 
-## Bug Fix Note
-
-An earlier version of this code had a bug where `SoftmaxPolicy._entropy_coef` was a property that always returned 0.01, ignoring the configured value. All experiments claiming to vary entropy coefficient were actually running with ent=0.01. The standard config results (which used ent=0.01 as the default) were unaffected. The aggressive and entropy sweep experiments have been re-run with the fix.
-
 ## Quick Start
 
 ```bash
