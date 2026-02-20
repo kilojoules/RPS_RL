@@ -165,6 +165,18 @@ Each point in the triangle represents a mixed strategy over (Rock, Paper, Scisso
 
 ![PPO Zoo A=0.90](experiments/results/A0.90_simplex.gif)
 
+### Aggressive Self-Play: Dramatic Cycling
+
+With default hyperparameters, self-play cycling is mild (exploitability 0.03–0.16). By removing the entropy regularizer and increasing the learning rate, the agent over-commits much harder — exploitability peaks above 0.6 and the strategy visibly occupies corners of the simplex before swinging to the next:
+
+```bash
+python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5 --seed 5
+```
+
+![Aggressive self-play cycling](experiments/results/aggressive_selfplay/aggressive_selfplay.gif)
+
+Without entropy regularization the policy has no incentive to stay mixed, so it collapses toward pure strategies. The high learning rate makes each correction overshoot, creating the classic Rock → Paper → Scissors cycling failure mode.
+
 ### Training Dynamics
 
 ![Exploitability over training](experiments/results/timeseries.png)
@@ -196,6 +208,9 @@ pip install -r requirements.txt
 
 # Self-play baseline (no zoo)
 python train_selfplay.py --timesteps 200000
+
+# Aggressive self-play (dramatic cycling — no entropy, high LR)
+python train_selfplay.py --timesteps 200000 --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5
 
 # Single zoo run (PPO)
 python train_zoo.py -A 0.1 --timesteps 200000
