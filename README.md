@@ -73,6 +73,8 @@ The horizontal/vertical bands reflect checkpoints that committed to one strategy
 
 Despite the near-uniform appearance, **23% of checkpoint triples still form cycles** under standard hyperparameters — the cycling is real, just small in magnitude. Aggressive hyperparameters amplify it to be visible.
 
+**No catastrophic forgetting.** If self-play caused forgetting, later checkpoints would systematically lose to earlier ones — the matrix would show a color gradient from top-left to bottom-right. Instead, win rates depend only on *which strategy* a checkpoint plays (R vs P vs S), not *when* it was trained. A checkpoint at t=500k is no better or worse against t=10k than against t=400k. This makes sense: RPS has no "skill" to forget — the strategy space is a 3-simplex and Nash is a single point. The agent cycles through strategies but never accumulates knowledge that could be overwritten. **Zoo sampling in RPS solves a cycling problem, not a forgetting problem.** This distinction matters for predicting when zoo helps in richer domains where catastrophic forgetting is possible.
+
 ```bash
 # Aggressive self-play (dramatic cycling)
 python train_selfplay.py --timesteps 500000 --checkpoint-interval 20 \
