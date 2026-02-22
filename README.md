@@ -346,6 +346,7 @@ python run_sweep.py --a-schedule exponential_down --timesteps 200000 --sampling-
 6. **Thompson Sampling improves high-A performance.** Adaptive opponent selection via Thompson Sampling cuts exploitability by 30–69% at A=0.70–0.90, with negligible effect at low A. The benefit scales with how often the agent samples from the zoo — when most training comes from zoo opponents, picking *which* opponent matters.
 7. **Scheduling A upward doesn't beat constant A.** Ramping A from 0 to 1 over training (360 experiments, 3 schedule shapes, 3 halflife values) underperforms the best constant A at both 200k and 500k timesteps. The upward ramp misses early convergence benefits and still accumulates late destabilization.
 8. **Decreasing A schedules match the best constant A at 500k.** Ramping A from 1 down to 0 (high early, low late) achieves 0.0332 at 500k — comparable to constant A=0.90 (0.0351) and far better than increasing schedules (0.0536). Fast decay (hl=0.10) is best at 500k; slow decay (hl=0.50) is best at 200k. The optimal halflife scales with training length.
+9. **No gap-dependent forgetting in the A=0 gauntlet.** Fitting an exponential decay model to the selfplay cross-evaluation matrix yields R² < 0.1 with standard hyperparameters — no monotonic forgetting signal. Zoo helps RPS by breaking cycling, not by reminding the agent of forgotten strategies. Aggressive hyperparameters DO produce a clear decay signal (R² = 0.74), validating the measurement tool.
 
 ## Implications for the A-Parameter Hypothesis
 
@@ -363,6 +364,59 @@ python run_sweep.py --a-schedule exponential_down --timesteps 200000 --sampling-
 
 **Not testable in RPS:**
 - Whether the zoo *staleness* mechanism produces a U-shape. RPS Nash is fixed, so old checkpoints never become misleading. The degradation at high A we observe comes from over-diversity, not staleness. Testing the staleness mechanism requires a non-stationary environment like Tag or WindGym.
+
+## Forgetting Rate Calibration (Expansion Plan Phase 1)
+
+The expansion plan proposes predicting A* directly from a single A=0 baseline run, avoiding expensive grid sweeps. The idea: fit an exponential decay to the A=0 cross-evaluation matrix to extract the environment's **forgetting rate** λ and **forgetting half-life** H_forget, then compute A* = C / H_forget using a universal coefficient C.
+
+`calibrate_forgetting.py` implements this by:
+1. Building (or loading cached) the gauntlet matrix from selfplay checkpoints
+2. Grouping lower-triangle entries by generation gap Δ
+3. Fitting exponential decay to three metrics: competitiveness, strategy L2 distance, and cosine similarity
+4. Extracting λ, H_forget, and C from the known A*
+
+### Results: Standard Hyperparameters (negative control)
+
+The gauntlet with standard hyperparameters (hidden=32, entropy=0.01) shows **no gap-dependent forgetting**:
+
+| Metric | λ | R² | H_forget |
+|--------|---|-----|----------|
+| Competitiveness | −0.00003 | 0.04 | ∞ |
+| Cosine similarity | 0.033 | −0.27 | 20.8 gen |
+| L2 growth | 0.008 | 0.07 | 86.1 gen |
+
+Win rate range: [0.48, 0.52]. All fits have R² < 0.1 — no meaningful signal. Matchup outcomes depend on **cycling phase**, not generation gap. This confirms the gauntlet finding above: zoo sampling in RPS solves a cycling problem, not a forgetting problem.
+
+![Standard calibration](experiments/results/selfplay_standard/calibration_agent_vs_agent.png)
+
+### Results: Aggressive Hyperparameters (tool validation)
+
+The aggressive selfplay (hidden=4, no entropy, high LR) shows a **strong decay signal**:
+
+| Metric | λ | R² | H_forget |
+|--------|---|-----|----------|
+| **Competitiveness** | **0.004** | **0.74** | **172 gen** |
+| Cosine similarity | 0.034 | 0.44 | 20.2 gen |
+| L2 growth | 0.024 | 0.55 | 29.3 gen |
+
+Win rate range: [0.27, 0.73]. The dramatic cycling produces clear gap-dependent competitiveness decay (R² = 0.74), validating that the method detects forgetting when present.
+
+![Aggressive calibration](experiments/results/selfplay/calibration_agent_vs_agent.png)
+
+### Implication
+
+RPS with standard hyperparameters is a **negative control**: the model correctly identifies "no monotonic forgetting" (R² ≈ 0, λ ≈ 0, H_forget = ∞). The universal coefficient C cannot be calibrated from RPS and must come from a domain with gap-dependent forgetting — Tag (Phase 2) or Chaos-1B (Phase 3).
+
+```bash
+# Standard selfplay calibration (negative control)
+python calibrate_forgetting.py --a-star-ppo 0.9 --a-star-buffered 0.9
+
+# Aggressive selfplay calibration (tool validation)
+python calibrate_forgetting.py \
+    --ckpt-dir experiments/results/selfplay/checkpoints \
+    --hidden 4 --a-star-ppo 0.05 \
+    --output-dir experiments/results/selfplay
+```
 
 ## Thompson Sampling for Zoo Opponent Selection
 
@@ -466,4 +520,7 @@ python analyze.py experiments/results/
 
 # Generate simplex animations and visualizations
 python visualize.py experiments/results/
+
+# Forgetting rate calibration (expansion plan Phase 1)
+python calibrate_forgetting.py --a-star-ppo 0.9 --a-star-buffered 0.9
 ```
