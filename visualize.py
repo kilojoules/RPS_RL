@@ -99,13 +99,14 @@ def collect_all(results_dir):
             results["selfplay"].append(metrics)
         else:
             is_thompson = parts[0].startswith("ts_")
+            is_coverage = parts[0].startswith("cov_")
             is_buffered = "buffered_" in parts[0]
-            ts_prefix = "ts_" if is_thompson else ""
+            strat_prefix = "ts_" if is_thompson else "cov_" if is_coverage else ""
             buf_prefix = "buffered_" if is_buffered else ""
             match = re.search(r"zoo_A([\d.]+)", parts[0])
             if match:
                 A = float(match.group(1))
-                results[f"{ts_prefix}{buf_prefix}A={A:.2f}"].append(metrics)
+                results[f"{strat_prefix}{buf_prefix}A={A:.2f}"].append(metrics)
 
     return results
 
@@ -461,6 +462,22 @@ def main():
                         f"Uniform (A={A:.2f})",
                         f"Thompson (A={A:.2f})",
                         output_dir / f"ts_vs_uniform_{prefix}A{A:.2f}.gif",
+                    )
+
+    # Coverage vs Uniform side-by-side animations
+    if not args.skip_animations:
+        for prefix, algo_label in [("", "PPO"), ("buffered_", "Buffered")]:
+            for A in [0.50, 0.70, 0.90]:
+                uni_key = f"{prefix}A={A:.2f}"
+                cov_key = f"cov_{prefix}A={A:.2f}"
+                if uni_key in results and cov_key in results:
+                    print(f"Animating Coverage comparison: {algo_label} A={A:.2f}...")
+                    animate_sidebyside(
+                        results[uni_key][:3],
+                        results[cov_key][:3],
+                        f"Uniform (A={A:.2f})",
+                        f"Coverage (A={A:.2f})",
+                        output_dir / f"cov_vs_uniform_{prefix}A{A:.2f}.gif",
                     )
 
     print("\nDone!")

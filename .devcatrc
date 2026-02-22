@@ -1,5 +1,8 @@
 exclude = [
     "results",
+    "experiments",
+    "*.jsonl",
+    "*.log",
     "*.pt",
     "*.h5",
     "*.ckpt",

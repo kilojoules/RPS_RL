@@ -57,11 +57,17 @@ def collect_results(results_dir: Path):
         if "selfplay" in parts[0]:
             results["selfplay"].append({"final": final, "timeseries": metrics})
         else:
-            # Check for ts_ (Thompson Sampling) and buffered_ prefixes
+            # Check for ts_ (Thompson Sampling), cov_ (Coverage), and buffered_ prefixes
             is_thompson = parts[0].startswith("ts_")
-            remainder = parts[0][3:] if is_thompson else parts[0]
+            is_coverage = parts[0].startswith("cov_")
+            if is_thompson:
+                remainder = parts[0][3:]
+            elif is_coverage:
+                remainder = parts[0][4:]
+            else:
+                remainder = parts[0]
             is_buffered = remainder.startswith("buffered_")
-            ts_prefix = "ts_" if is_thompson else ""
+            strat_prefix = "ts_" if is_thompson else "cov_" if is_coverage else ""
             buf_prefix = "buffered_" if is_buffered else ""
 
             # Check for schedule directories: zoo_{schedule}_hl{halflife}
@@ -69,7 +75,7 @@ def collect_results(results_dir: Path):
             if sched_match:
                 schedule = sched_match.group(1)
                 halflife = float(sched_match.group(2))
-                key = f"{ts_prefix}{buf_prefix}zoo_{schedule}_hl{halflife:.2f}"
+                key = f"{strat_prefix}{buf_prefix}zoo_{schedule}_hl{halflife:.2f}"
                 results[key].append({
                     "final": final, "timeseries": metrics,
                     "schedule": schedule, "halflife": halflife,
@@ -79,7 +85,7 @@ def collect_results(results_dir: Path):
             match = re.search(r"zoo_A([\d.]+)", parts[0])
             if match:
                 A = float(match.group(1))
-                results[f"{ts_prefix}{buf_prefix}zoo_A{A:.2f}"].append({
+                results[f"{strat_prefix}{buf_prefix}zoo_A{A:.2f}"].append({
                     "final": final, "timeseries": metrics, "A": A
                 })
 
@@ -98,10 +104,10 @@ def _collect_curve(results, prefix=""):
         if not key.startswith(f"{prefix}zoo_A"):
             continue
         # Skip keys from other prefixes that happen to match
-        # e.g. when prefix="" we must skip "buffered_" and "ts_" keys
-        if prefix == "" and (key.startswith("buffered_") or key.startswith("ts_")):
+        # e.g. when prefix="" we must skip "buffered_", "ts_", and "cov_" keys
+        if prefix == "" and (key.startswith("buffered_") or key.startswith("ts_") or key.startswith("cov_")):
             continue
-        if prefix == "buffered_" and key.startswith("ts_"):
+        if prefix == "buffered_" and (key.startswith("ts_") or key.startswith("cov_")):
             continue
         A = runs[0]["A"]
         expls = [r["final"]["exploitability"] for r in runs]
@@ -215,18 +221,20 @@ def plot_timeseries(results, output_dir: Path):
 
 
 def plot_a_curve_comparison(results, output_dir: Path):
-    """Plot uniform vs Thompson Sampling A curves side by side."""
+    """Plot uniform vs Thompson vs Coverage A curves side by side."""
     has_ts_ppo = any(k.startswith("ts_zoo_A") for k in results)
     has_ts_buffered = any(k.startswith("ts_buffered_zoo_A") for k in results)
-    has_ppo = any(k.startswith("zoo_A") and not k.startswith("buffered_") and not k.startswith("ts_") for k in results)
+    has_cov_ppo = any(k.startswith("cov_zoo_A") for k in results)
+    has_cov_buffered = any(k.startswith("cov_buffered_zoo_A") for k in results)
+    has_ppo = any(k.startswith("zoo_A") and not k.startswith("buffered_") and not k.startswith("ts_") and not k.startswith("cov_") for k in results)
     has_buffered = any(k.startswith("buffered_zoo_A") for k in results)
 
-    if not (has_ts_ppo or has_ts_buffered):
-        return  # No Thompson data to compare
+    if not (has_ts_ppo or has_ts_buffered or has_cov_ppo or has_cov_buffered):
+        return  # No Thompson or Coverage data to compare
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-    # PPO: uniform vs Thompson
+    # PPO: uniform vs Thompson vs Coverage
     if has_ppo:
         a_vals, expl_means, expl_stds, _, _ = _collect_curve(results, "")
         ax1.errorbar(a_vals, expl_means, yerr=expl_stds, fmt="o-", capsize=4,
@@ -235,8 +243,12 @@ def plot_a_curve_comparison(results, output_dir: Path):
         a_vals_ts, expl_means_ts, expl_stds_ts, _, _ = _collect_curve(results, "ts_")
         ax1.errorbar(a_vals_ts, expl_means_ts, yerr=expl_stds_ts, fmt="s--", capsize=4,
                      color="C2", label="PPO Thompson")
+    if has_cov_ppo:
+        a_vals_cov, expl_means_cov, expl_stds_cov, _, _ = _collect_curve(results, "cov_")
+        ax1.errorbar(a_vals_cov, expl_means_cov, yerr=expl_stds_cov, fmt="D:", capsize=4,
+                     color="C4", label="PPO Coverage")
 
-    # Buffered: uniform vs Thompson
+    # Buffered: uniform vs Thompson vs Coverage
     if has_buffered:
         a_vals_b, expl_means_b, expl_stds_b, _, _ = _collect_curve(results, "buffered_")
         ax2.errorbar(a_vals_b, expl_means_b, yerr=expl_stds_b, fmt="^-", capsize=4,
@@ -245,6 +257,10 @@ def plot_a_curve_comparison(results, output_dir: Path):
         a_vals_tb, expl_means_tb, expl_stds_tb, _, _ = _collect_curve(results, "ts_buffered_")
         ax2.errorbar(a_vals_tb, expl_means_tb, yerr=expl_stds_tb, fmt="v--", capsize=4,
                      color="C3", label="Buffered Thompson")
+    if has_cov_buffered:
+        a_vals_cb, expl_means_cb, expl_stds_cb, _, _ = _collect_curve(results, "cov_buffered_")
+        ax2.errorbar(a_vals_cb, expl_means_cb, yerr=expl_stds_cb, fmt="D:", capsize=4,
+                     color="C5", label="Buffered Coverage")
 
     # Self-play baseline
     if "selfplay" in results:
@@ -259,12 +275,12 @@ def plot_a_curve_comparison(results, output_dir: Path):
         ax.axhline(0.0, color="gray", linestyle=":", alpha=0.5)
         ax.set_xlabel("A (zoo sampling probability)")
         ax.set_ylabel("Exploitability")
-        ax.set_title(f"Uniform vs Thompson — {title}")
+        ax.set_title(f"Sampling Strategy Comparison — {title}")
         ax.legend()
         ax.set_xlim(-0.05, 1.05)
 
     plt.tight_layout()
-    fig_path = output_dir / "thompson_comparison.png"
+    fig_path = output_dir / "strategy_comparison.png"
     plt.savefig(fig_path, dpi=150)
     print(f"Saved: {fig_path}")
     plt.close()
@@ -308,6 +324,50 @@ def plot_ts_diagnostics(results, output_dir: Path):
 
     plt.tight_layout()
     fig_path = output_dir / "ts_diagnostics.png"
+    plt.savefig(fig_path, dpi=150)
+    print(f"Saved: {fig_path}")
+    plt.close()
+
+
+def plot_coverage_diagnostics(results, output_dir: Path):
+    """Plot coverage entropy evolution over training."""
+    cov_keys = [k for k in sorted(results.keys()) if k.startswith("cov_")]
+    if not cov_keys:
+        return
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+    for ax, prefix, title in [
+        (axes[0], "cov_", "PPO Coverage"),
+        (axes[1], "cov_buffered_", "Buffered Coverage"),
+    ]:
+        keys = [k for k in sorted(results.keys()) if k.startswith(f"{prefix}zoo_A")]
+        if prefix == "cov_":
+            keys = [k for k in keys if not k.startswith("cov_buffered_")]
+        if not keys:
+            ax.set_visible(False)
+            continue
+
+        colors = plt.cm.viridis(np.linspace(0, 1, len(keys)))
+        for ci, key in enumerate(keys):
+            A = results[key][0]["A"]
+            for run in results[key]:
+                ts = run["timeseries"]
+                steps = [m["timesteps"] for m in ts if "coverage_entropy" in m]
+                ents = [m["coverage_entropy"] for m in ts if "coverage_entropy" in m]
+                if steps:
+                    ax.plot(steps, ents, color=colors[ci], alpha=0.3, linewidth=0.5)
+            ax.plot([], [], color=colors[ci], label=f"A={A:.2f}")
+
+        ax.axhline(np.log(3), color="gray", linestyle=":", alpha=0.5, label="Max entropy (balanced)")
+        ax.set_xlabel("Timesteps")
+        ax.set_ylabel("Coverage Entropy")
+        ax.set_title(f"Coverage Entropy — {title}")
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=8)
+        ax.set_ylim(-0.05, 1.2)
+
+    plt.tight_layout()
+    fig_path = output_dir / "coverage_diagnostics.png"
     plt.savefig(fig_path, dpi=150)
     print(f"Saved: {fig_path}")
     plt.close()
@@ -410,6 +470,7 @@ def main():
     plot_timeseries(results, output_dir)
     plot_a_curve_comparison(results, output_dir)
     plot_ts_diagnostics(results, output_dir)
+    plot_coverage_diagnostics(results, output_dir)
     plot_schedule_comparison(results, output_dir)
 
     # Print summary table
@@ -422,16 +483,20 @@ def main():
         ("buffered_", "Buffered (replay buffer)"),
         ("ts_", "PPO Thompson"),
         ("ts_buffered_", "Buffered Thompson"),
+        ("cov_", "PPO Coverage"),
+        ("cov_buffered_", "Buffered Coverage"),
     ]:
         keys = [k for k in sorted(results.keys())
                 if k.startswith(f"{prefix}zoo_A")]
         # Filter out keys that belong to a longer prefix
         if prefix == "":
-            keys = [k for k in keys if not k.startswith("buffered_") and not k.startswith("ts_")]
+            keys = [k for k in keys if not k.startswith("buffered_") and not k.startswith("ts_") and not k.startswith("cov_")]
         elif prefix == "buffered_":
-            keys = [k for k in keys if not k.startswith("ts_")]
+            keys = [k for k in keys if not k.startswith("ts_") and not k.startswith("cov_")]
         elif prefix == "ts_":
             keys = [k for k in keys if not k.startswith("ts_buffered_")]
+        elif prefix == "cov_":
+            keys = [k for k in keys if not k.startswith("cov_buffered_")]
         if not keys:
             continue
 
@@ -461,6 +526,10 @@ def main():
                 sched_groups["Buffered Thompson Schedule"].append(key)
             elif key.startswith("ts_"):
                 sched_groups["PPO Thompson Schedule"].append(key)
+            elif key.startswith("cov_buffered_"):
+                sched_groups["Buffered Coverage Schedule"].append(key)
+            elif key.startswith("cov_"):
+                sched_groups["PPO Coverage Schedule"].append(key)
             elif key.startswith("buffered_"):
                 sched_groups["Buffered Schedule"].append(key)
             else:
