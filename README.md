@@ -57,6 +57,22 @@ python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 10
 
 ![Aggressive self-play cycling](experiments/results/aggressive_selfplay_fixed.gif)
 
+### Gauntlet Matrix: Cyclic Structure in Self-Play
+
+To reveal the rock-paper-scissors cycling among the agent's own training history, we play every checkpoint against every other checkpoint in a round-robin gauntlet (10,000 rounds per matchup). If checkpoint i beats j, j beats k, but k beats i — that's a cycle.
+
+![Gauntlet matrix](experiments/results/selfplay/gauntlet.png)
+
+Each axis label shows the checkpoint timestep and its exploitability. The diagonal is 0.5 (self-play). Off-diagonal cells show win rate of the row agent vs the column agent. **22% of all checkpoint triples form cycles** — confirming that self-play produces non-transitive strategy cycling rather than monotonic improvement.
+
+```bash
+# Train with checkpoints
+python train_selfplay.py --timesteps 200000 --checkpoint-interval 20
+
+# Generate gauntlet matrix
+python gauntlet.py experiments/results/selfplay/
+```
+
 ### The Solution: Zoo Sampling
 
 Zoo sampling mixes in historical opponents, preventing the co-evolutionary spiral. At 200k timesteps with standard hyperparameters, more zoo = lower exploitability:

@@ -21,6 +21,7 @@ def train_selfplay(
     output_dir: str = "experiments/results/selfplay",
     seed: int = 0,
     cfg: PPOConfig = None,
+    checkpoint_interval: int = 0,
 ):
     np.random.seed(seed)
 
@@ -32,6 +33,10 @@ def train_selfplay(
 
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     log_path = Path(output_dir) / "metrics.jsonl"
+
+    if checkpoint_interval > 0:
+        ckpt_dir = Path(output_dir) / "checkpoints"
+        ckpt_dir.mkdir(exist_ok=True)
 
     obs = env.reset()
     opp_obs = env.reset()
@@ -87,6 +92,12 @@ def train_selfplay(
 
             update_step += 1
 
+            if checkpoint_interval > 0 and update_step % checkpoint_interval == 0:
+                state = np.array(agent.get_state(), dtype=object)
+                np.save(ckpt_dir / f"agent_{total_rounds}.npy", state, allow_pickle=True)
+                state = np.array(opponent.get_state(), dtype=object)
+                np.save(ckpt_dir / f"opponent_{total_rounds}.npy", state, allow_pickle=True)
+
             if update_step % log_interval == 0:
                 # Evaluate: get marginal action distribution
                 test_obs = np.zeros((1, 3), dtype=np.float32)
@@ -130,6 +141,8 @@ def main():
     parser.add_argument("--hidden", type=int, default=32)
     parser.add_argument("--clip-ratio", type=float, default=0.2)
     parser.add_argument("--train-iters", type=int, default=4)
+    parser.add_argument("--checkpoint-interval", type=int, default=0,
+                        help="Save checkpoints every N updates (0=off)")
     args = parser.parse_args()
 
     cfg = PPOConfig(
@@ -148,6 +161,7 @@ def main():
         output_dir=args.output_dir,
         seed=args.seed,
         cfg=cfg,
+        checkpoint_interval=args.checkpoint_interval,
     )
 
 
