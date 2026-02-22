@@ -61,17 +61,28 @@ python train_selfplay.py --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 10
 
 To reveal the rock-paper-scissors cycling among the agent's own training history, we play every checkpoint against every other checkpoint in a round-robin gauntlet (10,000 rounds per matchup). If checkpoint i beats j, j beats k, but k beats i — that's a cycle.
 
-![Gauntlet matrix](experiments/results/selfplay/gauntlet.png)
+**Aggressive hyperparameters** (no entropy, high LR, hidden=4, no clipping) — dramatic strategy cycling produces win rates from 0.26 to 0.74:
 
-Each axis label shows the checkpoint timestep and its exploitability. The diagonal is 0.5 (self-play). Off-diagonal cells show win rate of the row agent vs the column agent. Win rates range from 0.26 to 0.74, with early checkpoints showing the strongest asymmetries as strategies swing between near-pure R, P, and S. The horizontal/vertical bands reflect checkpoints that committed to one strategy beating everything playing its counter.
+![Gauntlet matrix (aggressive)](experiments/results/selfplay/gauntlet.png)
+
+The horizontal/vertical bands reflect checkpoints that committed to one strategy (e.g. heavy Paper) beating everything playing its counter (Rock) but losing to the counter-counter (Scissors).
+
+**Standard hyperparameters** — all checkpoints stay near Nash, so every matchup is ~50/50 (win rates 0.48–0.52):
+
+![Gauntlet matrix (standard)](experiments/results/selfplay_standard/gauntlet.png)
+
+Despite the near-uniform appearance, **23% of checkpoint triples still form cycles** under standard hyperparameters — the cycling is real, just small in magnitude. Aggressive hyperparameters amplify it to be visible.
 
 ```bash
-# Train with checkpoints (aggressive hyperparameters for dramatic cycling)
+# Aggressive self-play (dramatic cycling)
 python train_selfplay.py --timesteps 500000 --checkpoint-interval 20 \
     --entropy-coef 0.0 --lr 0.05 --hidden 4 --clip-ratio 100.0 --train-iters 5 --seed 5
-
-# Generate gauntlet matrix
 python gauntlet.py experiments/results/selfplay/ --hidden 4
+
+# Standard self-play (subtle cycling)
+python train_selfplay.py --timesteps 500000 --checkpoint-interval 20 \
+    --output-dir experiments/results/selfplay_standard
+python gauntlet.py experiments/results/selfplay_standard/
 ```
 
 ### The Solution: Zoo Sampling
