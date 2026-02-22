@@ -149,8 +149,6 @@ def train_zoo(
                 }
                 if sampling_strategy == "thompson":
                     metrics.update(opponent_zoo.ts_diagnostics())
-                if sampling_strategy == "coverage":
-                    metrics.update(opponent_zoo.coverage_diagnostics())
                 with open(log_path, "a") as f:
                     f.write(json.dumps(metrics) + "\n")
 
@@ -176,7 +174,7 @@ def main():
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--sampling-strategy", type=str, default="uniform",
-                        choices=["uniform", "thompson", "coverage"],
+                        choices=["uniform", "thompson"],
                         help="Zoo sampling strategy (default: uniform)")
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")

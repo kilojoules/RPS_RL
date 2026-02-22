@@ -31,9 +31,8 @@ def main():
                         choices=["ppo", "buffered", "both"],
                         help="Which algorithm(s) to sweep (default: both)")
     parser.add_argument("--sampling-strategy", type=str, default="uniform",
-                        choices=["uniform", "thompson", "coverage", "both", "all"],
-                        help="Zoo sampling strategy (default: uniform). "
-                             "'both' runs uniform+thompson. 'all' runs uniform+thompson+coverage.")
+                        choices=["uniform", "thompson", "both"],
+                        help="Zoo sampling strategy (default: uniform). 'both' runs uniform and thompson.")
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")
     parser.add_argument("--a-schedule", type=str, default=None,
@@ -45,12 +44,7 @@ def main():
     args = parser.parse_args()
 
     algorithms = ["ppo", "buffered"] if args.algorithm == "both" else [args.algorithm]
-    if args.sampling_strategy == "both":
-        strategies = ["uniform", "thompson"]
-    elif args.sampling_strategy == "all":
-        strategies = ["uniform", "thompson", "coverage"]
-    else:
-        strategies = [args.sampling_strategy]
+    strategies = ["uniform", "thompson"] if args.sampling_strategy == "both" else [args.sampling_strategy]
     experiments = []
 
     for algo in algorithms:
@@ -72,10 +66,10 @@ def main():
 
         # Zoo sweep: strategy × A × seed
         for strategy in strategies:
-            strat_prefix = "ts_" if strategy == "thompson" else "cov_" if strategy == "coverage" else ""
+            ts_prefix = "ts_" if strategy == "thompson" else ""
             for A in args.a_values:
                 for seed in range(args.seeds):
-                    dir_name = f"{strat_prefix}{algo_prefix}zoo_A{A:.2f}"
+                    dir_name = f"{ts_prefix}{algo_prefix}zoo_A{A:.2f}"
                     exp_args = [
                         "--latest-prob", str(A),
                         "--timesteps", str(args.timesteps),
@@ -86,7 +80,7 @@ def main():
                     if strategy == "thompson":
                         exp_args += ["--competitiveness-threshold", str(args.competitiveness_threshold)]
                     experiments.append({
-                        "name": f"{strat_prefix}{algo_prefix}zoo_A{A:.2f}_s{seed}",
+                        "name": f"{ts_prefix}{algo_prefix}zoo_A{A:.2f}_s{seed}",
                         "script": zoo_script,
                         "args": exp_args,
                     })
@@ -95,10 +89,10 @@ def main():
         if args.a_schedule:
             schedule = args.a_schedule
             for strategy in strategies:
-                sched_strat_prefix = "ts_" if strategy == "thompson" else "cov_" if strategy == "coverage" else ""
+                ts_prefix = "ts_" if strategy == "thompson" else ""
                 for halflife in args.a_halflife_values:
                     for seed in range(args.seeds):
-                        dir_name = f"{sched_strat_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}"
+                        dir_name = f"{ts_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}"
                         exp_args = [
                             "--a-schedule", schedule,
                             "--a-halflife", str(halflife),
@@ -110,7 +104,7 @@ def main():
                         if strategy == "thompson":
                             exp_args += ["--competitiveness-threshold", str(args.competitiveness_threshold)]
                         experiments.append({
-                            "name": f"{sched_strat_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}_s{seed}",
+                            "name": f"{ts_prefix}{algo_prefix}zoo_{schedule}_hl{halflife:.2f}_s{seed}",
                             "script": zoo_script,
                             "args": exp_args,
                         })

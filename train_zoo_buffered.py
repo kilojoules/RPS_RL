@@ -8,8 +8,6 @@ whether the replay buffer produces the predicted smoother A curve.
 """
 import argparse
 import json
-import math
-import random
 import numpy as np
 from pathlib import Path
 
@@ -32,14 +30,11 @@ class BufferedZoo:
         self.checkpoints = []
         self.alphas: list[float] = []
         self.betas: list[float] = []
-        self.coverage_counts = [0, 0, 0]
 
     def add(self, agent: BufferedAgent, update: int):
-        probs = agent.action_probs(np.zeros((1, 3), dtype=np.float32))[0]
         self.checkpoints.append({
             "params": agent.get_state(),
             "update": update,
-            "dominant_action": int(np.argmax(probs)),
         })
         self.alphas.append(1.0)
         self.betas.append(1.0)
@@ -51,22 +46,10 @@ class BufferedZoo:
     def sample(self) -> tuple[BufferedAgent, int]:
         if not self.checkpoints:
             raise ValueError("Zoo is empty")
+        import random
         if self.sampling_strategy == "thompson" and len(self.checkpoints) > 1:
             thetas = [np.random.beta(a, b) for a, b in zip(self.alphas, self.betas)]
             idx = int(np.argmax(thetas))
-        elif self.sampling_strategy == "coverage" and len(self.checkpoints) > 1:
-            groups: dict[int, list[int]] = {0: [], 1: [], 2: []}
-            for i, ckpt in enumerate(self.checkpoints):
-                groups[ckpt["dominant_action"]].append(i)
-            order = sorted(range(3), key=lambda m: self.coverage_counts[m])
-            idx = None
-            for mode in order:
-                if groups[mode]:
-                    idx = random.choice(groups[mode])
-                    self.coverage_counts[mode] += 1
-                    break
-            if idx is None:
-                idx = random.randrange(len(self.checkpoints))
         else:
             idx = random.randrange(len(self.checkpoints))
         ckpt = self.checkpoints[idx]
@@ -91,20 +74,6 @@ class BufferedZoo:
             "ts_success_rate": float(
                 np.mean([a / (a + b) for a, b in zip(self.alphas, self.betas)])
             ),
-        }
-
-    def coverage_diagnostics(self) -> dict[str, float]:
-        total = sum(self.coverage_counts)
-        if total == 0:
-            return {"coverage_r": 0, "coverage_p": 0, "coverage_s": 0,
-                    "coverage_entropy": 0.0}
-        probs = [c / total for c in self.coverage_counts]
-        entropy = -sum(p * math.log(p) if p > 0 else 0.0 for p in probs)
-        return {
-            "coverage_r": self.coverage_counts[0],
-            "coverage_p": self.coverage_counts[1],
-            "coverage_s": self.coverage_counts[2],
-            "coverage_entropy": float(entropy),
         }
 
     def __len__(self):
@@ -212,8 +181,6 @@ def train_zoo_buffered(
                 }
                 if sampling_strategy == "thompson":
                     metrics.update(opponent_zoo.ts_diagnostics())
-                if sampling_strategy == "coverage":
-                    metrics.update(opponent_zoo.coverage_diagnostics())
                 with open(log_path, "a") as f:
                     f.write(json.dumps(metrics) + "\n")
 
@@ -239,7 +206,7 @@ def main():
     parser.add_argument("--output-dir", type=str, default="experiments/results/zoo_buffered")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--sampling-strategy", type=str, default="uniform",
-                        choices=["uniform", "thompson", "coverage"],
+                        choices=["uniform", "thompson"],
                         help="Zoo sampling strategy (default: uniform)")
     parser.add_argument("--competitiveness-threshold", type=float, default=0.3,
                         help="Thompson Sampling competitiveness threshold (default: 0.3)")

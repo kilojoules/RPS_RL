@@ -25,16 +25,12 @@ class OpponentZoo:
         # Thompson Sampling posteriors: Beta(alpha, beta) per checkpoint
         self.alphas: List[float] = []
         self.betas: List[float] = []
-        # Coverage-based sampling: counts per mode (R, P, S)
-        self.coverage_counts = [0, 0, 0]
 
     def add(self, agent: PPOAgent, update: int):
         """Snapshot current agent params into the zoo."""
-        probs = agent.action_probs(np.zeros((1, 3), dtype=np.float32))[0]
         self.checkpoints.append({
             "params": agent.get_state(),
             "update": update,
-            "dominant_action": int(np.argmax(probs)),
         })
         self.alphas.append(1.0)
         self.betas.append(1.0)
@@ -55,21 +51,6 @@ class OpponentZoo:
         if self.sampling_strategy == "thompson" and len(self.checkpoints) > 1:
             thetas = [np.random.beta(a, b) for a, b in zip(self.alphas, self.betas)]
             idx = int(np.argmax(thetas))
-        elif self.sampling_strategy == "coverage" and len(self.checkpoints) > 1:
-            # Group checkpoints by dominant action (cached at add time)
-            groups: Dict[int, List[int]] = {0: [], 1: [], 2: []}
-            for i, ckpt in enumerate(self.checkpoints):
-                groups[ckpt["dominant_action"]].append(i)
-            # Pick from least-covered mode that has checkpoints
-            order = sorted(range(3), key=lambda m: self.coverage_counts[m])
-            idx = None
-            for mode in order:
-                if groups[mode]:
-                    idx = random.choice(groups[mode])
-                    self.coverage_counts[mode] += 1
-                    break
-            if idx is None:
-                idx = random.randrange(len(self.checkpoints))
         else:
             idx = random.randrange(len(self.checkpoints))
 
@@ -101,21 +82,6 @@ class OpponentZoo:
             "ts_success_rate": float(
                 np.mean([a / (a + b) for a, b in zip(self.alphas, self.betas)])
             ),
-        }
-
-    def coverage_diagnostics(self) -> Dict[str, float]:
-        """Return coverage-based sampling diagnostic metrics."""
-        total = sum(self.coverage_counts)
-        if total == 0:
-            return {"coverage_r": 0, "coverage_p": 0, "coverage_s": 0,
-                    "coverage_entropy": 0.0}
-        probs = [c / total for c in self.coverage_counts]
-        entropy = -sum(p * math.log(p) if p > 0 else 0.0 for p in probs)
-        return {
-            "coverage_r": self.coverage_counts[0],
-            "coverage_p": self.coverage_counts[1],
-            "coverage_s": self.coverage_counts[2],
-            "coverage_entropy": float(entropy),
         }
 
     def __len__(self):
