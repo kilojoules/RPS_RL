@@ -247,6 +247,70 @@ The universal coefficient C must be calibrated from a domain with genuine gap-de
 
 ---
 
+## Candidate Metrics for Predicting A*
+
+### Motivation
+
+The gauntlet-based calibration above requires training checkpoints and O(n²) pairwise evaluations — expensive for large-scale domains. This section explores whether *cheap proxy metrics*, computable from a single A=0 self-play training log, can predict A* without running a full sweep.
+
+The key idea: each entropy coefficient in the existing `ent_sweep/`, `hyper_sweep/`, and `moderate_sweep/` directories defines a different training configuration. For each, we extract the A* from the full A-sweep and a set of candidate proxy metrics from the A=0 training curve alone.
+
+### Candidate Metrics
+
+All metrics are computed from the A=0 training log (`metrics.jsonl`), averaged across seeds:
+
+| Metric | Formula | Intuition |
+|---|---|---|
+| **Exploitability variance** | var(agent_exploitability) | Higher variance = more cycling = more instability |
+| **Mean exploitability** | mean(agent_exploitability) | Baseline performance without zoo support |
+| **Cycling amplitude** | mean(max(p) - min(p)) across actions | How far action probabilities swing over training |
+| **Strategy drift rate** | mean(\|Δp\|) between consecutive updates | Velocity of policy change |
+
+### Data Sources
+
+| Sweep | Entropy levels | A=0 baseline | A* variation |
+|---|---|---|---|
+| `ent_sweep/` | 5 (0.0–0.01) | Shared across ent levels | A* ∈ {0.0, 0.1} |
+| `hyper_sweep/` (PPO) | 7 (0.0–0.02) | Independent per ent level | A* = 0.05 (constant) |
+| `moderate_sweep/` | 4 (0.0–0.005) | Shared across ent levels | A* = 0.05 (constant) |
+
+**Shared baseline**: In `ent_sweep` and `moderate_sweep`, the A=0 self-play runs are identical across entropy levels (same files reused), so the proxy metrics are constant within each sweep. Only `hyper_sweep` PPO has genuinely independent A=0 training per entropy level, though even there the variation is small.
+
+**Buffered hyper_sweep excluded**: No A=0 data available (buffered runs start at A=0.05).
+
+### Results
+
+![Candidate proxy metrics vs A*](experiments/results/metric_vs_astar.png)
+
+Combined correlation (all 16 data points across sweeps):
+
+| Metric | R² | p-value | Slope |
+|---|---|---|---|
+| Exploitability variance | 0.279 | 0.036 | −6.63 |
+| Mean exploitability | 0.279 | 0.035 | −0.22 |
+| Cycling amplitude | 0.279 | 0.035 | −0.08 |
+| Strategy drift rate | 0.279 | 0.035 | −1.06 |
+
+### Interpretation
+
+1. **All four metrics produce nearly identical R² (≈0.28)**: This is because the metrics are highly correlated with each other — they all measure different aspects of the same underlying cycling behavior. The signal is entirely driven by the between-cluster separation: ent_sweep configurations (high cycling, A*≈0) vs hyper_sweep/moderate configurations (low cycling, A*=0.05).
+
+2. **No within-sweep variation is predictive**: Within `hyper_sweep` (PPO), where A=0 training genuinely varies across entropy levels, A* is constant at 0.05. Within `ent_sweep`, proxy metrics are constant (shared baseline) while A* shows slight variation. Neither direction yields a smooth predictive relationship.
+
+3. **The negative slope is interpretable**: Higher cycling/instability in A=0 self-play is associated with A*≈0, meaning self-play alone is already optimal. This makes sense: the ent_sweep configurations appear to use more aggressive hyperparameters that produce dramatic cycling, where self-play is sufficient for exploration.
+
+4. **R²=0.28 is inflated**: The 16 "data points" are not independent. Nine have shared A=0 baselines (ent_sweep: 5, moderate_sweep: 4), reducing the effective sample size. The signal reflects two hyperparameter regimes, not a smooth dose-response.
+
+### Conclusion
+
+These candidate metrics do not yet provide a reliable proxy for predicting A*. The variation is driven by gross hyperparameter regime differences (aggressive vs standard network size), not by the entropy coefficient sweep that was intended to provide continuous variation. To make this approach work, future experiments would need:
+
+- A=0 training runs that are genuinely independent per entropy level (not shared baselines)
+- A wider range of hyperparameter configurations producing diverse A* values
+- Validation on domains where A* varies more continuously (e.g., AI-Plays-Tag)
+
+---
+
 ## Reproduction
 
 ```bash
@@ -273,6 +337,7 @@ Results are saved to the parent directory of `--ckpt-dir`:
 | File | Purpose |
 |---|---|
 | `calibrate_forgetting.py` | Phase 1 calibration script (this study) |
+| `plot_metric_vs_astar.py` | Candidate proxy metric scatter plots |
 | `train_selfplay.py` | Generates A=0 self-play checkpoints |
 | `run_sweep.py` | A-sweep for empirical A\* |
 | `gauntlet.py` | Original cross-evaluation script |

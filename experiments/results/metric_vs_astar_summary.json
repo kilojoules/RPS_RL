@@ -1,0 +1,181 @@
+{
+  "sweeps": {
+    "ent_sweep": {
+      "shared_baseline": true,
+      "points": [
+        {
+          "ent": 0.0,
+          "astar": 0.0,
+          "expl_var": 0.005661238682104952,
+          "expl_mean": 0.21408920568698867,
+          "cycling_amp": 0.4585703677601285,
+          "drift_rate": 0.02985850911311529
+        },
+        {
+          "ent": 0.001,
+          "astar": 0.0,
+          "expl_var": 0.005661238682104952,
+          "expl_mean": 0.21408920568698867,
+          "cycling_amp": 0.4585703677601285,
+          "drift_rate": 0.02985850911311529
+        },
+        {
+          "ent": 0.003,
+          "astar": 0.0,
+          "expl_var": 0.005661238682104952,
+          "expl_mean": 0.21408920568698867,
+          "cycling_amp": 0.4585703677601285,
+          "drift_rate": 0.02985850911311529
+        },
+        {
+          "ent": 0.005,
+          "astar": 0.1,
+          "expl_var": 0.005661238682104952,
+          "expl_mean": 0.21408920568698867,
+          "cycling_amp": 0.4585703677601285,
+          "drift_rate": 0.02985850911311529
+        },
+        {
+          "ent": 0.01,
+          "astar": 0.0,
+          "expl_var": 0.005661238682104952,
+          "expl_mean": 0.21408920568698867,
+          "cycling_amp": 0.4585703677601285,
+          "drift_rate": 0.02985850911311529
+        }
+      ]
+    },
+    "hyper_sweep (PPO)": {
+      "shared_baseline": false,
+      "points": [
+        {
+          "ent": 0.0,
+          "astar": 0.05,
+          "expl_var": 0.0011940037821995847,
+          "expl_mean": 0.07501348607318918,
+          "cycling_amp": 0.06806408365567525,
+          "drift_rate": 0.0016694742220419426
+        },
+        {
+          "ent": 0.002,
+          "astar": 0.05,
+          "expl_var": 0.0011828615963319002,
+          "expl_mean": 0.07490995546796476,
+          "cycling_amp": 0.06762807899051242,
+          "drift_rate": 0.0016593205294123403
+        },
+        {
+          "ent": 0.005,
+          "astar": 0.05,
+          "expl_var": 0.0011654954560938204,
+          "expl_mean": 0.07478367662716567,
+          "cycling_amp": 0.06705983314249252,
+          "drift_rate": 0.0016384411051317497
+        },
+        {
+          "ent": 0.008,
+          "astar": 0.05,
+          "expl_var": 0.0011429929771594393,
+          "expl_mean": 0.07461170427168358,
+          "cycling_amp": 0.0665012432469262,
+          "drift_rate": 0.0016217485967057724
+        },
+        {
+          "ent": 0.01,
+          "astar": 0.05,
+          "expl_var": 0.0011316208373340852,
+          "expl_mean": 0.07463075584152719,
+          "cycling_amp": 0.06620950665738846,
+          "drift_rate": 0.001613052009984299
+        },
+        {
+          "ent": 0.015,
+          "astar": 0.05,
+          "expl_var": 0.0011054895048521905,
+          "expl_mean": 0.07455028516730082,
+          "cycling_amp": 0.06541320516003503,
+          "drift_rate": 0.0015909190600117047
+        },
+        {
+          "ent": 0.02,
+          "astar": 0.05,
+          "expl_var": 0.0010622819547756932,
+          "expl_mean": 0.0743071902351281,
+          "cycling_amp": 0.06412424478265975,
+          "drift_rate": 0.0015681219045762661
+        }
+      ]
+    },
+    "moderate_sweep": {
+      "shared_baseline": true,
+      "points": [
+        {
+          "ent": 0.0,
+          "astar": 0.05,
+          "expl_var": 0.0011316208373340852,
+          "expl_mean": 0.07463075584152719,
+          "cycling_amp": 0.06620950665738846,
+          "drift_rate": 0.001613052009984299
+        },
+        {
+          "ent": 0.001,
+          "astar": 0.05,
+          "expl_var": 0.0011316208373340852,
+          "expl_mean": 0.07463075584152719,
+          "cycling_amp": 0.06620950665738846,
+          "drift_rate": 0.001613052009984299
+        },
+        {
+          "ent": 0.003,
+          "astar": 0.05,
+          "expl_var": 0.0011316208373340852,
+          "expl_mean": 0.07463075584152719,
+          "cycling_amp": 0.06620950665738846,
+          "drift_rate": 0.001613052009984299
+        },
+        {
+          "ent": 0.005,
+          "astar": 0.05,
+          "expl_var": 0.0011316208373340852,
+          "expl_mean": 0.07463075584152719,
+          "cycling_amp": 0.06620950665738846,
+          "drift_rate": 0.001613052009984299
+        }
+      ]
+    }
+  },
+  "correlations": {
+    "expl_var": {
+      "label": "Exploitability Variance",
+      "R2": 0.2788,
+      "slope": -6.630296,
+      "intercept": 0.0575,
+      "p_value": 0.035516,
+      "n_points": 16
+    },
+    "expl_mean": {
+      "label": "Mean Exploitability",
+      "R2": 0.2789,
+      "slope": -0.215172,
+      "intercept": 0.0661,
+      "p_value": 0.035497,
+      "n_points": 16
+    },
+    "cycling_amp": {
+      "label": "Cycling Amplitude",
+      "R2": 0.2789,
+      "slope": -0.076486,
+      "intercept": 0.0551,
+      "p_value": 0.035498,
+      "n_points": 16
+    },
+    "drift_rate": {
+      "label": "Strategy Drift Rate",
+      "R2": 0.2789,
+      "slope": -1.062353,
+      "intercept": 0.0517,
+      "p_value": 0.035497,
+      "n_points": 16
+    }
+  }
+}
