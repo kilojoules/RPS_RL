@@ -311,6 +311,84 @@ These candidate metrics do not yet provide a reliable proxy for predicting A*. T
 
 ---
 
+## Gauntlet-Derived Metric Screen
+
+### Motivation
+
+The proxy metrics above use only 4 simple training-curve statistics and achieved R\*\*2 ≈ 0.28, driven by coarse between-cluster separation. Can richer metrics derived from the **gauntlet matrix** — the full n×n pairwise win-rate structure — do better?
+
+**Key constraint**: Only 2 real gauntlet matrices exist (standard + aggressive checkpoints). No checkpoints were saved for ent\_sweep, hyper\_sweep, or moderate\_sweep.
+
+**Key insight**: In RPS, win rates between two policies can be computed **analytically** from their action probability vectors:
+
+$$W(i,j) = p_R^i \cdot p_S^j + p_S^i \cdot p_P^j + p_P^i \cdot p_R^j$$
+
+Every A=0 training log contains \~97 snapshots of `agent_probs`, so we can construct a **synthetic 97×97 gauntlet matrix** per run — giving 16 data points across entropy sweeps instead of just 2.
+
+### Candidate Metrics (15 total)
+
+| Category | Metric | Description |
+|---|---|---|
+| **Win-rate statistics** | `wr_range` | max(W) − min(W) off-diagonal |
+| | `wr_var` | Variance of off-diagonal win rates |
+| | `mean_abs_dev` | Mean \|W − 0.5\| |
+| | `frac_decisive` | Fraction of pairs with \|W − 0.5\| > 0.1 |
+| **Competitiveness curve** | `comp_at_1` | Competitiveness at Δ=1 |
+| | `comp_at_half` | Competitiveness at Δ=n/2 |
+| | `comp_drop` | comp(Δ=1) − comp(Δ=n/2) |
+| **Exponential fit** | `comp_lambda` | Competitiveness decay rate λ |
+| | `comp_r2` | R² of competitiveness fit |
+| | `h_forget` | ln(2)/λ (capped at 10,000) |
+| **Strategy distance** | `l2_rate` | L2 growth rate λ from exponential fit |
+| | `cos_rate` | Cosine decay rate λ |
+| | `max_l2` | Maximum L2 distance (asymptotic divergence) |
+| | `mean_l2_half` | Mean L2 at Δ=n/2 |
+| **Structural** | `transitivity` | Fraction of transitive triples (i>j>k → i>k) |
+
+### Results
+
+![Gauntlet-derived metric screen](experiments/results/gauntlet_metric_screen.png)
+
+Ranked correlations (all 16 data points, combined across sweeps):
+
+| Metric | R² | p-value |
+|---|---|---|
+| WR Range | 0.279 | 0.036 |
+| WR Variance | 0.279 | 0.036 |
+| Mean \|WR − 0.5\| | 0.279 | 0.036 |
+| Frac Decisive | 0.279 | 0.036 |
+| Comp at Δ=1 | 0.279 | 0.036 |
+| Comp at Δ=n/2 | 0.279 | 0.036 |
+| Comp Drop | 0.279 | 0.036 |
+| Comp λ | 0.279 | 0.036 |
+| H\_forget | 0.279 | 0.036 |
+| Max L2 Distance | 0.279 | 0.036 |
+| Transitivity | 0.279 | 0.036 |
+| Mean L2 at Δ=n/2 | 0.279 | 0.036 |
+| L2 Growth Rate λ | 0.277 | 0.036 |
+| Comp Fit R² | 0.272 | 0.038 |
+| Cosine Decay Rate λ | 0.272 | 0.038 |
+
+Two reference points from real (simulated) gauntlet matrices are overlaid as stars: Standard (h=32, A\*=0.9) and Aggressive (h=4, A\*=0.05).
+
+### Interpretation
+
+1. **All 15 metrics produce nearly identical R² (≈0.28)**: This exactly matches the 4 simple proxy metrics from the previous section. The gauntlet structure adds no predictive power beyond what the training curve already provides.
+
+2. **The signal is entirely between-cluster**: ent\_sweep configs (aggressive-like, high cycling → A\*≈0) form one cluster, while hyper\_sweep and moderate\_sweep (standard-like, low cycling → A\*=0.05) form another. No metric separates *within* either cluster.
+
+3. **ent\_sweep has a shared A=0 baseline**: All 5 entropy levels reuse the same A=0 training data, producing identical synthetic gauntlet metrics. Despite this, they show slight A\* variation (4 at A\*=0.0, 1 at A\*=0.1).
+
+4. **hyper\_sweep shows genuine within-cluster variation in metrics but not in A\***: The 7 entropy levels have independently trained A=0 runs with slightly different gauntlet statistics (WR range decreases from 0.013 to 0.010 as entropy increases), but A\* is constant at 0.05 across all.
+
+5. **Transitivity is 1.0 for all standard-regime configs**: The win-rate deviations from 0.5 are so small (max ±0.006) that the beat relation is perfectly transitive. Only ent\_sweep configs (with much larger deviations) show intransitivity (0.94), consistent with the RPS cycling structure.
+
+### Conclusion
+
+Gauntlet-derived metrics — including gap-dependent competitiveness curves, forgetting half-lives, strategy distance measures, and structural transitivity — do not improve on simple training-curve statistics for predicting A\* in this dataset. The fundamental limitation is not the metrics but the data: the 16 available entropy configurations collapse into just 2 hyperparameter regimes with distinct A\* values. A richer A\*-predictive signal would require domains where A\* varies more continuously.
+
+---
+
 ## Reproduction
 
 ```bash
@@ -323,6 +401,9 @@ python calibrate_forgetting.py \
 python calibrate_forgetting.py \
     --ckpt-dir experiments/results/selfplay/checkpoints \
     --hidden 4
+
+# Gauntlet-derived metric screen (synthetic gauntlets from all sweeps)
+python plot_gauntlet_metric_screen.py
 ```
 
 Results are saved to the parent directory of `--ckpt-dir`:
@@ -338,6 +419,7 @@ Results are saved to the parent directory of `--ckpt-dir`:
 |---|---|
 | `calibrate_forgetting.py` | Phase 1 calibration script (this study) |
 | `plot_metric_vs_astar.py` | Candidate proxy metric scatter plots |
+| `plot_gauntlet_metric_screen.py` | Gauntlet-derived metric screen (this section) |
 | `train_selfplay.py` | Generates A=0 self-play checkpoints |
 | `run_sweep.py` | A-sweep for empirical A\* |
 | `gauntlet.py` | Original cross-evaluation script |
