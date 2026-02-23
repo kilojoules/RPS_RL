@@ -426,3 +426,15 @@ Results are saved to the parent directory of `--ckpt-dir`:
 | `zoo.py` | Opponent zoo with A-parameter scheduling |
 | `experiments/results/selfplay_standard/` | Standard hyperparams results |
 | `experiments/results/selfplay/` | Aggressive hyperparams results |
+
+---
+
+## Gauntlet Matrix Gallery
+
+All gauntlet matrices organized by regime. Each panel uses a diverging colormap centered at 0.5 with a per-panel colorbar to reveal structure at each scale.
+
+![All gauntlet matrices by regime](experiments/results/all_gauntlet_matrices.png)
+
+**Aggressive regime** (top row, A\*=0.0–0.05): The real gauntlet (h=4, 48×48, WR range 0.46) shows strong checkerboard banding from dramatic RPS cycling — adjacent checkpoints play opposite strategies, creating stark win/loss stripes. The three ent\_sweep synthetic gauntlets (97×97, WR range 0.15) capture the same periodic oscillation pattern at lower amplitude.
+
+**Standard regime** (bottom row, A\*=0.05–0.9): The real gauntlet (h=32, 48×48, WR range 0.04) is salt-and-pepper noise with no coherent gap-dependent structure. The synthetic gauntlets from moderate\_sweep and hyper\_sweep (97×97, WR range ~0.002) are essentially uniform at 0.5 — deviations are ~100× smaller than the aggressive regime. The per-panel colorbars reveal faint structure, but the actual win-rate variation is negligible.
